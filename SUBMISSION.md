@@ -17,6 +17,7 @@ End time: _to be filled in when the clock stops_
 10. **An unknown `/api` route without a token returns `401`, not `404`,** because the sign-in check runs first. Logged, not fixed: defensible as it is.
 11. **The demo account list shows only the first team for a manager who leads several.** Logged, not fixed: the demo data has one team per manager.
 12. **`formatDate` in `src/web/format.ts` is never used.** Logged, not fixed: harmless dead code.
+13. **Other request-body errors still return a logged `500`:** a body over 100 kB (the JSON parser reports `413`) and an unsupported charset such as `charset=latin1` (`415`). The review after the JSON fix found this. Logged, not fixed: it is outside the agreed scope, and `docs/api.md` would need new status codes.
 
 ## What you changed
 
@@ -34,7 +35,7 @@ End time: _to be filled in when the clock stops_
 ## What you decided not to do
 
 - Left the `engine.test.ts` test "ignores filters the query does not accept" unchanged. Its name did not match the overdue query, which listed `status` as accepted, but its assertion is correct, and the fix for item 2 makes the name accurate.
-- Items 4, 7, 10, 11 and 12 above, for the reasons given there.
+- Items 4, 7, 10, 11, 12 and 13 above, for the reasons given there.
 
 ## Verification
 

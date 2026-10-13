@@ -14,7 +14,7 @@ How AI coding agents work in this repository. The project rules and facts come f
 
 - This is a 75-minute timeboxed exercise (see `BRIEF.md`). Leave the last 10 minutes for `SUBMISSION.md` and the final commit.
 - Stack: TypeScript. Express 5 API in `src/api`, backed by in-memory fixture data. React + Vite web app in `src/web`. Response types shared by both in `src/shared`.
-- Commands: `npm test` (Vitest), `npm run typecheck`, `npm run build`, `npm run dev` (web app on http://localhost:5173, API on http://localhost:3001). There is no `lint` script, although the README lists one.
+- Commands: `npm test` (Vitest), `npm run typecheck`, `npm run build`, `npm run dev` (web app on http://localhost:5173, API on http://localhost:3001). There is no `lint` script.
 - Server request flow: route → `authenticate` builds the request context → service → repository.
 - Task visibility is enforced in two places that must stay in step: `src/api/domain/taskQueries/scope.ts` (listing tasks) and `TaskService.canAccess` in `src/api/domain/taskService.ts` (completing a task).
 - Product rules are in `docs/domain.md`. The HTTP API is in `docs/api.md`.

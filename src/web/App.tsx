@@ -106,6 +106,15 @@ function Workspace() {
         </nav>
       </div>
 
+      {isManager && reps.status === "error" && (
+        <div className="state state-error" role="alert">
+          <p>Could not load your reps. {reps.error.message}</p>
+          <button type="button" onClick={reps.reload}>
+            Try again
+          </button>
+        </div>
+      )}
+
       <div className="filters">
         {isManager && reps.status === "success" && <RepFilter reps={reps.data} value={repId} onChange={setRepId} />}
         {view === "all" && (

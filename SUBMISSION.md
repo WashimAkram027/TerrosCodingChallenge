@@ -1,7 +1,7 @@
 # Submission
 
 Start time: 13:43 CDT, 13 October 2026
-End time: _to be filled in when the clock stops_
+End time: 14:58 CDT, 13 October 2026
 
 ## Opportunities, ranked
 
@@ -18,9 +18,15 @@ End time: _to be filled in when the clock stops_
 11. **The demo account list shows only the first team for a manager who leads several.** Logged, not fixed: the demo data has one team per manager.
 12. **`formatDate` in `src/web/format.ts` is never used.** Logged, not fixed: harmless dead code.
 13. **Other request-body errors still return a logged `500`:** a body over 100 kB (the JSON parser reports `413`) and an unsupported charset such as `charset=latin1` (`415`). The review after the JSON fix found this. Logged, not fixed: it is outside the agreed scope, and `docs/api.md` would need new status codes.
+14. **Managers had no quick view of who is falling behind** before their weekly check-in. By value this ranks just after items 1 and 2. **Built:** a Team summary (see below).
 
 ## What you changed
 
+- **New feature: Team summary for managers**, built in a separate worktree and merged into `main`.
+  - `GET /api/tasks/summary` returns open, overdue and due-soon counts (due within the next 24 hours), plus the reps with overdue work. It uses the same visibility rules as the task lists.
+  - A Team summary tab shows those counts, with a "View overdue" link per rep that opens the Overdue tab filtered to that rep.
+  - Managers now land on Team summary. Reps see no change.
+  - `docs/api.md` and `docs/domain.md` are updated, and no dependencies were added.
 - **Reps can no longer complete their teammates' tasks** (`src/api/domain/taskService.ts`). For reps, the completion check now compares the task's assignee with the signed-in rep, the same rule that decides which tasks a rep can list. Acting on someone else's task now returns `404`, as `docs/api.md` describes.
 - **The Overdue view's rep filter works** (`src/api/domain/taskQueries/definitions.ts`). The overdue query now accepts `repId`, so the filter narrows the list, and asking for a rep outside your visibility returns `403`, the same as `GET /api/tasks`.
 - **Five tests in `src/api/domain/taskService.test.ts` pin both rules.** Four of them failed before the fixes. The fifth checks that reps can still complete their own tasks, so the fix cannot quietly over-restrict them.
@@ -49,9 +55,48 @@ End time: _to be filled in when the clock stops_
 - In the browser (`npm run dev`), signed in as Dana, the Overdue tab filtered to Alicia Chen shows only "Collect signed utility authorization".
 - The 21 contract tests passed against the code before the smaller fixes, so they describe existing behaviour rather than new behaviour.
 - The smaller fixes were test-first too. Before the fixes, the `Bearer` test got `401` instead of `200`, the JSON test got `500` instead of `400`, and the app test found no error message. All three passed after the fixes.
-- Final run: `npm test` passed 46 of 46 tests in 8 files, and `npm run build` (type-check plus production build) was clean.
+- After the smaller fixes, `npm test` passed 46 of 46 tests in 8 files.
+- The review then found that the new `Bearer` check also accepted a tab after the scheme. I tightened it test-first: the new test got `200` before and `401` after. Final run: `npm test` passed 47 of 47 tests in 8 files, and `npm run build` (type-check plus production build) was clean.
 - The rep-list message is covered by a component test (`src/web/App.test.tsx`). I chose to do the browser check for it myself instead of having the AI drive the browser, to save time.
+- Team summary has unit, service, HTTP and component tests: the due-soon edges at exactly now and at 24 hours, the manager's and the rep's counts, the counts after completing a task, and the landing tab for each role.
+  - To land managers on Team summary, one existing App test had to open Tasks first. I approved that change, and its checks are unchanged.
+  - The feature session checked it in the browser: Dana lands on Team summary with 6 open, 3 overdue and 1 due soon.
+- Final state of `main` (`d91fb8a`): `npm test` passed 62 of 62 tests in 9 files, and `npm run typecheck` was clean.
 
 ## Working with AI
 
-_To be filled in._
+- **How I directed it.** I used two Claude Code sessions: one for review and bug fixes on `main`, and one for the feature in a git worktree. Both followed a `CLAUDE.md` with my rules:
+  - plan first, and wait for my approval;
+  - for bug fixes, show the failing test before the fix;
+  - no new dependencies;
+  - keep the API as `docs/` describe it;
+  - never weaken tests;
+  - log unrelated problems instead of fixing them.
+
+  After each significant change, a subagent reviewed the diff.
+- **Verified carefully.** Before any fix, I had the AI map every rule in `docs/` to the code and tests, and reproduce the two visibility bugs against the running API.
+- **Accepted.** The review found that my new `Bearer` check also accepted a tab after the scheme. I had it tightened, test-first.
+- **Changed.** The feature plan advised against changing what managers see first, as too big for the timebox. I overrode that and had managers land on Team summary, in its own commit with the docs updated.
+- **Rejected.** A "Due soon" label on every task row, because it would change the task object that `docs/api.md` documents.
+- I stopped AI browser automation partway through to save time.
+
+## Future: deploying to production
+
+I did not do this in the exercise, because the project rules rule out new dependencies and outside services. This is the simplest route I would take.
+
+**Flow:** browser → Vercel (web app) → Railway (API) → Supabase (database and sign-in)
+
+1. **Supabase holds the data and handles sign-in.**
+   - A Postgres database with users, teams and tasks, in the same shapes the API already uses, seeded with today's demo data.
+   - Supabase Auth signs people in. Each account links to a user record that carries its role (manager or rep) and its team.
+2. **Railway runs the API.**
+   - The Express API runs as a Node service. It already reads its port from `PORT`, which Railway sets.
+   - The Supabase project URL and key live in Railway's environment settings, never in the repository.
+   - Two parts change. The in-memory fixture repositories are replaced by Supabase-backed ones behind the same repository interfaces. The sign-in check verifies Supabase access tokens instead of the demo tokens. Routes, services and the visibility rules stay as they are.
+   - The demo accounts endpoint and the generated fixture data are removed.
+   - The API currently starts through `tsx`, a development dependency, so Railway must either keep development dependencies installed or run a build step first.
+3. **Vercel serves the web app.**
+   - Vercel builds the React app with `npm run build` and serves the static files.
+   - A Vercel rewrite forwards `/api/*` to the Railway API, so the web app keeps its current paths and needs no cross-origin setup.
+   - Supabase sign-in replaces the demo account switcher. The web app sends the Supabase access token as the bearer token, the same way it sends the demo token today.
+4. **Check it.** `/api/health` answers on Railway. Signing in as a manager and as a rep shows each person only the tasks they are allowed to see.

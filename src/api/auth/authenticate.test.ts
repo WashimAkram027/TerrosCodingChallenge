@@ -14,4 +14,14 @@ describe("authenticate", () => {
       expect(response.body.user.id).toBe("u-dana");
     }
   });
+
+  it("requires a space between the scheme and the token", async () => {
+    const app = createApp();
+
+    for (const separator of ["\t", " "]) {
+      const response = await request(app).get("/api/me").set("Authorization", `Bearer${separator}demo-dana`);
+
+      expect(response.status).toBe(401);
+    }
+  });
 });

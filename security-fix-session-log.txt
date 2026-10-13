@@ -1,0 +1,2028 @@
+ ▐▛███▛█   Claude Code v2.1.296
+▝▜██████▀  Opus 5.5 · Claude Max
+ ▝▝   ▝▝   ~\TerrosCoding\TerrosCodingChallenge
+
+⚠ Your login expires in 3 days · run /login to renew
+
+❯ before we start on this project, start a timer now fro 75 minutes, cause this 
+  is a timed assignment, remind me 10 minutes before we are close to 75         
+  minutes. Now import the global claude.md files to this project claude.md file 
+  and also add these new project specific rules to it do not add any new        
+  dependencie or outside services when we work on adding features, when you     
+  find any exisiting bugs or unrelated problem add it to submission.md file     
+  instead of fixing right away. for any bug found show the test faling before   
+  the fix and passing after it. Do not change how the API works, keep it the    
+  way the docs describe it. if we change it on purpose, upldate docs/ in the    
+  same commit. do not waeken, skip or delete a test to make it pass. If a test  
+  looks wrong, stop and explain it to me why, and on my inpput we will fix it.  
+  For context, start exploring with README and the docs, tace how a request     
+  flows through the code , for every rile already mentioned in docs/domain.md   
+  and docs/api.md show me where the code enfores it and how and which test      
+  covers it. List anything that contest the docs. No fixes yet. its a review    
+  and planning step. The first step is finding any current issues with the      
+  codebase, will work on it first, adn then adding new features, i have few in  
+  mind.                                                                         
+
+  Searched for 1 pattern, read 29 files, ran 4 shell commands (ctrl+o to expand)
+
+● I've reviewed the API layer and spotted two likely rule violations, with all
+  17 baseline tests passing. Now I'll read through the tests and web app to
+  complete the rule-by-rule map.
+
+  Read 13 files (ctrl+o to expand)
+
+● Read everything in the API and web layers. Now confirming the suspected bugs
+  against the running app in-process (read-only, no files written).
+
+  Searched for 1 pattern, ran 6 shell commands (ctrl+o to expand)
+
+● Confirmed four doc violations by calling the app in-process. Writing up the
+  audit and the plan now.
+
+● Updated plan
+  ⎿  /plan to preview
+
+● The timer is running. It started at 13:43:16 CDT, I'll warn you at 14:48, and
+  time is up at 14:58. I haven't edited anything yet. CLAUDE.md and
+  SUBMISSION.md are Step 0 of the plan, waiting for your approval.
+
+  Baseline: all 17 existing tests pass. npm run lint fails because there is no
+  lint script, even though the README lists one.
+
+  Confirmed bugs. I reproduced both by calling the API in-process against the
+  fixture data:
+  - B1, access control (critical): a rep can complete a teammate's task. Marcus
+    completing Alicia's task-1004 returns 200 instead of 404. The check in
+    taskService.ts:47 compares teams when it should compare the assignee.
+  - B2, high: /api/tasks/overdue ignores repId.
+    - A manager filtering by one rep gets the whole team.
+    - A manager asking for a rep on another team gets 200 instead of 403.
+    - The cause is definitions.ts:14, which says the overdue query accepts
+      "status" when it should accept "repId".
+    - In the app, this breaks the Overdue tab's rep filter, the view managers
+      use before their check-ins.
+
+  Other places the docs and reality disagree:
+  - The README says there are API tests using Supertest. None exist, so 401,
+    400, 403, 404, 409 and the error format have no tests at all.
+  - The README's lint script doesn't exist.
+  - Sending a malformed JSON body returns a 500 instead of a 400.
+
+  The plan shows each rule from docs/domain.md and docs/api.md next to the code
+  that enforces it and the test that covers it. Most HTTP-level rules are
+  enforced but have no test.
+
+  One test name in engine.test.ts doesn't match the code, but what it checks is
+  correct, so I've left it alone.
+
+  I copied your global rules into the project CLAUDE.md instead of linking to
+  ~/.claude/CLAUDE.md, because the reviewer won't have your home folder.
+
+  Proposed order:
+  1. Write CLAUDE.md and SUBMISSION.md.
+  2. Fix B1, with a failing test first.
+  3. Fix B2, with failing tests first.
+  4. Optionally, add HTTP tests using the Supertest package that's already
+     installed, so nothing new is added.
+
+✻ Brewed for 5m 27s · done 1:48 PM
+
+※ recap: We're auditing this timed 75-minute project before fixing anything; the review found two real bugs, and the plan is ready. Next, you approve it so I can write CLAUDE.md and SUBMISSION.md, then fix the bugs with failing tests first. (disable recaps in /config)
+
+❯ /effort                                                                       
+  ⎿  Set effort level to max (this session only): Maximum capability with
+     deepest reasoning. May use excessive tokens resulting in long response
+     times or overthinking. Use sparingly for the hardest tasks.
+
+❯ i noticed the acces control bug as well, let's plan a proposed fix for it for 
+  both B1 and B2, go ahead with writng the claude.md and submisison.md files.   
+  let's fix the exisitng bugs first, then we will work on adding new features.  
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● About 12 minutes in (started 13:43:16, now 13:55). Plan mode is still on, so
+  I'll fold your go-ahead and the detailed fix plan for B1 and B2 into the plan,
+  then ask you to approve it.
+
+● Updated plan
+  ⎿  /plan to preview
+
+● User approved Claude's plan
+  ⎿  Plan saved to: ~\.claude\plans\before-we-start-on-recursive-kettle.md · 
+     /plan to edit
+     Plan: project setup files, then fix B1 and B2
+
+     Context
+
+     Timed practical. The clock started at 13:43:16 CDT, the 10-minute warning
+     is at 14:48 and the hard stop is at 14:58 (background timers are running).
+     The review step is done (see the appendix). The user approved writing
+     CLAUDE.md and SUBMISSION.md, and asked for a proposed fix for the two
+     confirmed bugs. Bugs come before features. Baseline: npm test gives 17/17
+     passing.
+
+     Order once approved: Step 0, then B1, then B2. Each bug gets a red test
+     run, then the fix, then a green run. No commits until asked; I'll propose a
+     commit message after each step.
+
+     Step 0: CLAUDE.md and SUBMISSION.md (approved)
+
+     CLAUDE.md (new, repo root):
+     1. Project rules. These win on conflict:
+        - no new dependencies or outside services, including for features;
+        - when an existing bug or unrelated problem turns up, log it in
+          SUBMISSION.md instead of fixing it right away;
+        - every bug fix shows its test failing before the fix and passing after;
+        - keep the API as docs/ describe it, and if we change it on purpose,
+          update docs/ in the same commit;
+        - never weaken, skip or delete a test, and if one looks wrong, stop,
+          explain why, and wait for the user's decision.
+     2. Project facts:
+        - the 75-minute timebox, with the last 10 minutes kept for
+          SUBMISSION.md;
+        - the stack and layout;
+        - the commands: npm test, npm run typecheck, npm run build, npm run dev
+          (there is no lint script, despite the README);
+        - the request flow: route → authenticate → service → repository;
+        - task visibility lives in two places that must stay in step:
+          taskQueries/scope.ts for lists and TaskService.canAccess for
+          completing;
+        - the product rules are in docs/domain.md and the API in docs/api.md.
+     3. General rules for agentic coding. The global ~/.claude/CLAUDE.md copied
+        word for word, with headings moved down one level. I'm copying rather
+        than using an @ import so the rules travel with the repository.
+
+     SUBMISSION.md (new): the brief's outline.
+     - Start time 13:43 CDT, 13 October 2026.
+     - Opportunities, ranked, from the review: B1, B2, missing HTTP tests,
+       visibility written twice, missing lint script, malformed JSON gives 500,
+       the list going blank when a task is completed, the rep filter hiding
+       silently, the case-sensitive bearer scheme, unknown routes giving 401,
+       demo accounts showing only the first team, unused formatDate. Each item
+       says whether it was worked on and why.
+     - Under Verification, the 17/17 baseline.
+     - Under What you decided not to do, the engine.test.ts name note. The other
+       sections are filled in as work lands and in the final 10 minutes.
+
+     Step 1: B1, reps can complete teammates' tasks (critical)
+
+     - Root cause: src/api/domain/taskService.ts:47. The rep branch of canAccess
+       is task.teamId === context.user.teamId. The list scope gives reps only
+       assigneeIds: [scope.userId] (scope.ts:17), so completing allows more than
+       listing does.
+     - Fix (one line): : task.assigneeId === context.scope.userId; (the ternary
+       has already narrowed scope to the self variant). The manager branch stays
+       the same; it already matches scope.ts:21.
+     - Tests (src/api/domain/taskService.test.ts, same style as the file; import
+       NotFoundError from ./errors):
+       - "reports a teammate's task as not found when a rep tries to complete 
+         it": Marcus completing task-1004 (Alicia's) rejects with NotFoundError,
+         and task-1004 is still open in Alicia's list. Fails before the fix
+         because the promise resolves.
+       - "lets a rep complete their own task": Marcus completing task-1003
+         returns completed. This passes both before and after. It guards against
+         making the check too strict (for example a typo that blocks reps
+         entirely), which the red test alone would not catch.
+     - Not doing now: merging the two visibility checks into one helper. That's
+       a refactor beyond the fix, and it's logged in SUBMISSION.md.
+     - No docs change, because this restores the documented 404.
+
+     Step 2: B2, the overdue list ignores repId (high)
+
+     - Root cause: src/api/domain/taskQueries/definitions.ts:14.
+       overdueTasksQuery.accepts: ["status"], so normalizeFilters (filters.ts:9)
+       drops repId and TaskScopeResolver never sees it. The result is no
+       narrowing and no 403.
+     - Fix (one line): accepts: ["repId"]. Overdue means open by definition, and
+       the docs give it only repId.
+     - Tests (same file; import ForbiddenError). Each one fails before the fix:
+       - "narrows a manager's overdue list to a single rep": Dana with repId: 
+         "u-alicia" gives ["task-1004"] (today it returns 1007, 1001 and 1004).
+       - "rejects an overdue filter for a rep outside the manager's teams": Dana
+         with repId: "u-sam" rejects with ForbiddenError.
+       - "rejects an overdue filter for another rep when the user is a rep":
+         Marcus with repId: "u-alicia" rejects with ForbiddenError.
+     - The existing engine.test.ts:38 test still passes, and its name becomes
+       accurate (status is now dropped instead of accepted but unused). No test
+       is changed.
+     - No docs change, because this restores "same rules as GET /api/tasks". The
+       web app already sends repId (client.ts:64), so the Overdue tab's rep
+       filter starts working with no UI change.
+
+     Not in this round
+
+     - Step 3, HTTP contract tests using the existing supertest dev dependency:
+       proposed after B1 and B2, your call.
+     - Features: after the bugs, when you share them.
+
+     Verification
+
+     1. For B1 and then B2: npx vitest run src/api/domain/taskService.test.ts,
+        showing the failures before the fix and all passing after.
+     2. npm test: expect 22/22 (17 baseline plus 5 new) and the same 17 baseline
+        names passing. Then npm run typecheck.
+     3. Rerun the in-process supertest probe:
+        - Marcus completing task-1004 should give 404;
+        - Dana's overdue list with repId=u-alicia should be task-1004 only;
+        - Dana's overdue list with repId=u-sam should give 403;
+        - Marcus's overdue list with repId=u-alicia should give 403.
+     4. Browser: npm run dev, sign in as Dana, open Overdue, filter by Alicia
+        Chen. Only "Collect signed utility authorization" should show.
+     5. One code-review subagent pass over the diff against this plan, with
+        findings brought to you.
+
+     ---
+
+     Appendix: review findings (previous step)
+
+     Confirmed bugs
+
+     #: B1
+     Docs say: Reps see only their own tasks; anything else is 404 on action
+     Actual: Marcus completing Alicia's task-1004 gives 200
+     Cause: taskService.ts:47 checks the team, not the assignee
+     ────────────────────────────────────────
+     #: B2
+     Docs say: Overdue repId follows the same rules as /api/tasks (narrow, or
+     403)
+     Actual: Dana with repId=u-alicia gets the whole team; with u-sam 200, not
+     403;
+     Marcus with u-alicia 200, not 403
+     Cause: definitions.ts:14 has accepts: ["status"]
+
+     Other mismatches between the docs and the code
+
+     - The README says Supertest API tests exist. None do, so the whole HTTP
+       layer is untested.
+     - The README lists a lint script. There is none, and no ESLint.
+     - A malformed JSON body gives a 500, not a 400.
+     - The bearer scheme is case-sensitive.
+     - An unknown /api route with no token gives 401, not 404.
+
+     Coverage gaps (enforced, no test)
+
+     - 401 on a missing or unknown token;
+     - 400 on bad status or a repeated repId;
+     - 403 on an out-of-scope repId for /api/tasks;
+     - 409 on completing an already completed task;
+     - the error shape;
+     - /api/me, /api/team/reps (managers only, sorted), /api/health,
+       /api/demo-accounts;
+     - the status filter on /api/tasks;
+     - the web Tasks view and its status filter.
+
+● Plan approved. Starting Step 0. I'm reading the global CLAUDE.md from disk so
+  the copy matches it word for word.
+
+  Read 1 file (ctrl+o to expand)
+
+● Write(CLAUDE.md)
+  ⎿  Wrote 86 lines to CLAUDE.md
+       1 # CLAUDE.md
+       3 How AI coding agents work in this repository. The project rules 
+         om my global `~/.claude/CLAUDE.md` so they travel with the repos
+       4 
+       6 
+       7 - Do not add new dependencies or outside services, including whe
+       8 - When you find an existing bug or an unrelated problem, record 
+       9 - For every bug fix, show the test failing before the fix and pa
+      10 - Do not change how the API behaves: keep it the way `docs/` des
+         e 
+     … +141 lines (ctrl+o to expand)
+
+● Write(SUBMISSION.md)
+  ⎿  Wrote 36 lines to SUBMISSION.md
+      1 # Submission
+      3 Start time: 13:43 CDT, 13 October 2026
+      4 End time: _to be filled in when the clock stops_
+      6 ## Opportunities, ranked
+      8 1. **Reps can complete their teammates' tasks.** The docs say rep
+        s see only their own tasks and anything else is "not found", but 
+         of its assignee (`src/api/domain/taskService.ts`). This is an ac
+        cess-control hole. **Worked on** (in progress).
+        verdue?repId=...` returns the whole team, and asking for a rep ou
+        e this view before their weekly check-in, so the filter si
+     … +60 lines (ctrl+o to expand)
+
+● Step 0 done. Now Step 1 (B1): adding the tests first, then running them to
+  show the failure.
+
+● Update(src\api\domain\taskService.test.ts)
+  ⎿  Added 1 line
+       4  import { createFixtureData } from "../fixtures/data";
+       5  import { FixtureDirectoryRepository, FixtureTaskRepository } fr
+          om "../repository/fixtureRepository";
+       6  import { fixedClock } from "./clock";
+       7 +import { NotFoundError } from "./errors";                      
+       8  import { createTaskQueryRegistry, TaskQueryEngine, TaskScopeRes
+          olver } from "./taskQueries";
+       9  import { TaskService } from "./taskService";
+      10  
+
+● Update(src\api\domain\taskService.test.ts)
+  ⎿  Added 13 lines
+      63      expect(task.completedAt).toBe(referenceTime.toISOString());
+      64      expect(task.isOverdue).toBe(false);
+      65    });
+      66 +                                                               
+      67 +  it("lets a rep complete their own task", async () => {       
+      68 +    const task = await service.completeTask(await contextFor("u
+         +-marcus"), "task-1003");                                       
+      69 +                                                               
+      70 +    expect(task.status).toBe("completed");                     
+      71 +  });                                                          
+      72 +                                                               
+      73 +  it("reports a teammate's task as not found when a rep tries t
+         +o complete it", async () => {                                  
+      74 +    await expect(service.completeTask(await contextFor("u-marcu
+         +s"), "task-1004")).rejects.toBeInstanceOf(NotFoundError);      
+      75 +                                                               
+      76 +    const aliciasTasks = await service.listTasks(await contextF
+         +or("u-alicia"));                                               
+      77 +    expect(aliciasTasks.find((task) => task.id === "task-1004")
+         +?.status).toBe("open");                                        
+      78 +  });                                                          
+      79  });
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● Red, as expected: Marcus's call succeeded and completed Alicia's task-1004.
+  The new guard test ("lets a rep complete their own task") passes. Now the
+  one-line fix:
+
+● Update(src\api\domain\taskService.ts)
+  ⎿  Added 1 line, removed 1 line
+      44    private canAccess(context: RequestContext, task: Task): boole
+          an {
+      45      return context.scope.kind === "teams"
+      46        ? context.scope.teamIds.includes(task.teamId)
+      47 -      : task.teamId === context.user.teamId;                   
+      47 +      : task.assigneeId === context.scope.userId;              
+      48    }
+      49  
+      50    private async toViews(tasks: Task[]): Promise<TaskView[]> {
+
+  Ran 1 shell command (ctrl+o to expand)
+● B1 is green (7/7). Now Step 2 (B2): tests first.
+
+● Update(src\api\domain\taskService.test.ts)
+  ⎿  Added 1 line, removed 1 line
+       4  import { createFixtureData } from "../fixtures/data";
+       5  import { FixtureDirectoryRepository, FixtureTaskRepository } fr
+          om "../repository/fixtureRepository";
+       6  import { fixedClock } from "./clock";
+       7 -import { NotFoundError } from "./errors";                      
+       7 +import { ForbiddenError, NotFoundError } from "./errors";      
+       8  import { createTaskQueryRegistry, TaskQueryEngine, TaskScopeRes
+          olver } from "./taskQueries";
+       9  import { TaskService } from "./taskService";
+      10  
+
+● Update(src\api\domain\taskService.test.ts)
+  ⎿  Added 18 lines
+      56      expect(tasks.every((task) => task.isOverdue)).toBe(true);
+      57    });
+      58  
+      59 +  it("narrows a manager's overdue list to a single rep", async 
+         +() => {                                                        
+      60 +    const tasks = await service.listOverdueTasks(await contextF
+         +or("u-dana"), { repId: "u-alicia" });                          
+      61 +                                                               
+      62 +    expect(tasks.map((task) => task.id)).toEqual(["task-1004"])
+         +;                                                              
+      63 +  });                                                          
+      64 +                                                               
+      65 +  it("rejects an overdue filter for a rep outside the manager's
+         + teams", async () => {                                         
+      66 +    await expect(service.listOverdueTasks(await contextFor("u-d
+         +ana"), { repId: "u-sam" })).rejects.toBeInstanceOf(            
+      67 +      ForbiddenError,                                          
+      68 +    );                                                         
+      69 +  });                                                          
+      70 +                                                               
+      71 +  it("rejects an overdue filter for another rep when the user i
+         +s a rep", async () => {                                        
+      72 +    await expect(service.listOverdueTasks(await contextFor("u-m
+         +arcus"), { repId: "u-alicia" })).rejects.toBeInstanceOf(       
+      73 +      ForbiddenError,                                          
+      74 +    );                                                         
+      75 +  });                                                          
+      76 +                                                               
+      77    it("completes a task and records the completion time", async 
+          () => {
+      78      const task = await service.completeTask(await contextFor("u
+          -dana"), "task-1006");
+      79  
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● All three fail exactly as predicted: the whole team comes back, and the
+  promises resolve instead of rejecting. Now the one-line fix:
+
+● Update(src\api\domain\taskQueries\definitions.ts)
+  ⎿  Added 1 line, removed 1 line
+      11  
+      12  export const overdueTasksQuery: TaskQueryDefinition = {
+      13    name: "overdue",
+      14 -  accepts: ["status"],                                         
+      14 +  accepts: ["repId"],                                          
+      15    criteria: [hasStatus("open"), overdueAtRequestTime],
+      16    order: compareByDueDate,
+      17  };
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● B2 is green (10/10). Now the full verification in parallel: the whole suite,
+  typecheck, the in-process probe, the dev server for the browser check, and the
+  review subagent.
+
+  Ran 4 shell commands (ctrl+o to expand)
+
+● Agent(Review B1/B2 fix diff)
+  ⎿  Backgrounded agent (↓ to manage · ctrl+o to expand)
+
+● All 22 tests pass, typecheck is clean, and the probe returns the expected
+  404/403 responses with the narrowed list, while reps and managers retain their
+  task access. Moving on to the browser check now.
+
+  Read 1 file, called claude-in-chrome, ran 2 shell commands (ctrl+o to expand)
+
+● User answered Claude's questions:
+  ⎿  · Two Chrome browsers are connected. Which one should I use to check the 
+     Overdue tab's rep filter in the running app? → Browser 1
+
+  Called claude-in-chrome 6 times (ctrl+o to expand)
+
+● Checking in the browser: signed in as Dana, now opening the Overdue tab and
+  filtering by Alicia.
+
+  Called claude-in-chrome 5 times (ctrl+o to expand)
+
+● The Overdue click didn't register and the screenshot timed out, suggesting the
+  tab is frozen or in the background. I'll check the tab state and try clicking
+  again.
+
+  Called claude-in-chrome 3 times (ctrl+o to expand)
+
+● Confirmed as Dana that the Overdue tab filtered to Alicia Chen shows just one
+  task, "Collect signed utility authorization." Now closing the tab and updating
+  SUBMISSION.md while the review runs.
+
+  Called claude-in-chrome (ctrl+o to expand)
+
+● Update(SUBMISSION.md)
+  ⎿  Added 1 line, removed 1 line
+       5  
+       6  ## Opportunities, ranked
+       7  
+       8 -1. **Reps can complete their teammates' tasks.** The docs say r
+         -eps see only their own tasks and anything else is "not found", 
+         -but `POST /api/tasks/:taskId/complete` checks the task's team i
+         -nstead of its assignee (`src/api/domain/taskService.ts`). This 
+         -is an access-control hole. **Worked on** (in progress).        
+       8 +1. **Reps can complete their teammates' tasks.** The docs say r
+         +eps see only their own tasks and anything else is "not found", 
+         +but `POST /api/tasks/:taskId/complete` checks the task's team i
+         +nstead of its assignee (`src/api/domain/taskService.ts`). This 
+         +is an access-control hole. **Fixed.**                          
+       9  2. **The Overdue view ignores the rep filter.** `GET /api/tasks
+          /overdue?repId=...` returns the whole team, and asking for a re
+          p outside your visibility returns `200` instead of `403`. Manag
+          ers use this view before their weekly check-in, so the filter s
+          ilently shows the wrong people. The cause is that the overdue q
+          uery does not accept `repId` (`src/api/domain/taskQueries/defin
+          itions.ts`). **Worked on** (in progress).
+      10  3. **No HTTP-level tests.** The README says the API tests call 
+          the Express app with Supertest, but none exist. Sign-in checks,
+           the error format, and the `400`, `401`, `403`, `404` and `409`
+           responses have no tests, and neither do completing an already 
+          completed task, `/api/me` or `/api/team/reps`. Proposed next.
+      11  4. **Task visibility is written twice:** once for lists (`src/a
+          pi/domain/taskQueries/scope.ts`) and once for completing a task
+           (`TaskService.canAccess`). That duplication is how item 1 crep
+          t in. Logged, not fixed: merging them is a refactor beyond the 
+          bug fix.
+
+● Update(SUBMISSION.md)
+  ⎿  Added 1 line, removed 1 line
+       6  ## Opportunities, ranked
+       7  
+       8  1. **Reps can complete their teammates' tasks.** The docs say r
+          eps see only their own tasks and anything else is "not found", 
+          but `POST /api/tasks/:taskId/complete` checks the task's team i
+          nstead of its assignee (`src/api/domain/taskService.ts`). This 
+          is an access-control hole. **Fixed.**
+       9 -2. **The Overdue view ignores the rep filter.** `GET /api/tasks
+         -/overdue?repId=...` returns the whole team, and asking for a re
+         -p outside your visibility returns `200` instead of `403`. Manag
+         -ers use this view before their weekly check-in, so the filter s
+         -ilently shows the wrong people. The cause is that the overdue q
+         -uery does not accept `repId` (`src/api/domain/taskQueries/defin
+         -itions.ts`). **Worked on** (in progress).                      
+       9 +2. **The Overdue view ignores the rep filter.** `GET /api/tasks
+         +/overdue?repId=...` returns the whole team, and asking for a re
+         +p outside your visibility returns `200` instead of `403`. Manag
+         +ers use this view before their weekly check-in, so the filter s
+         +ilently shows the wrong people. The cause is that the overdue q
+         +uery does not accept `repId` (`src/api/domain/taskQueries/defin
+         +itions.ts`). **Fixed.**                                        
+      10  3. **No HTTP-level tests.** The README says the API tests call 
+          the Express app with Supertest, but none exist. Sign-in checks,
+           the error format, and the `400`, `401`, `403`, `404` and `409`
+           responses have no tests, and neither do completing an already 
+          completed task, `/api/me` or `/api/team/reps`. Proposed next.
+      11  4. **Task visibility is written twice:** once for lists (`src/a
+          pi/domain/taskQueries/scope.ts`) and once for completing a task
+           (`TaskService.canAccess`). That duplication is how item 1 crep
+          t in. Logged, not fixed: merging them is a refactor beyond the 
+          bug fix.
+      12  5. **The README lists `npm run lint`, but there is no lint scri
+          pt or ESLint setup.** Logged, not fixed: fixing it means adding
+           dependencies.
+
+● Update(SUBMISSION.md)
+  ⎿  Added 5 lines, removed 1 line
+      20  
+      21  ## What you changed
+      22  
+      23 -_To be filled in as work lands._                               
+      23 +- **Reps can no longer complete their teammates' tasks** (`src/
+         +api/domain/taskService.ts`). For reps, the completion check now
+         + compares the task's assignee with the signed-in rep, the same 
+         +rule that decides which tasks a rep can list. Acting on someone
+         + else's task now returns `404`, as `docs/api.md` describes.    
+      24 +- **The Overdue view's rep filter works** (`src/api/domain/task
+         +Queries/definitions.ts`). The overdue query now accepts `repId`
+         +, so the filter narrows the list, and asking for a rep outside 
+         +your visibility returns `403`, the same as `GET /api/tasks`.   
+      25 +- **Five tests in `src/api/domain/taskService.test.ts` pin both
+         + rules.** Four of them failed before the fixes. The fifth check
+         +s that reps can still complete their own tasks, so the fix cann
+         +ot quietly over-restrict them.                                 
+      26 +- **Added `CLAUDE.md`** with the working rules for AI agents in
+         + this repository, plus this file.                              
+      27 +- No API behaviour changed beyond restoring what the docs alrea
+         +dy say, so `docs/` is unchanged.                               
+      28  
+      29  ## What you decided not to do
+      30  
+
+● Update(SUBMISSION.md)
+  ⎿  Added 7 lines
+      34  ## Verification
+      35  
+      36  - Baseline before any change: `npm test` passed 17 of 17 tests 
+          in 4 files.
+      37 +- Each fix was test-first. The rep-completion test failed befor
+         +e its fix (Marcus's call completed Alicia's task) and passed af
+         +ter. The three overdue-filter tests failed before their fix (th
+         +e whole team came back, and the calls succeeded instead of bein
+         +g refused) and passed after.                                   
+      38 +- After both fixes, `npm test` passed 22 of 22 and `npm run typ
+         +echeck` was clean.                                             
+      39 +- I also called the API in process with Supertest:             
+      40 +  - Marcus completing Alicia's task gets `404`; his own task ge
+         +ts `200`; Dana completing a team task gets `200`.              
+      41 +  - Dana's overdue list filtered to Alicia returns only Alicia'
+         +s task; filtered to Sam (another team) it gets `403`; unfiltere
+         +d it is unchanged.                                             
+      42 +  - Marcus asking for Alicia's overdue tasks gets `403`.       
+      43 +- In the browser (`npm run dev`), signed in as Dana, the Overdu
+         +e tab filtered to Alicia Chen shows only "Collect signed utilit
+         +y authorization".                                              
+      44  
+      45  ## Working with AI
+      46  
+
+● SUBMISSION.md is updated. The review subagent is still running, so here is the
+  code diff to look over in the meantime:
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● Both bugs are fixed, each shown failing before its fix and passing after. It's
+  14:05, so 22 minutes in and about 53 left (warning at 14:48).
+
+  Step 0: CLAUDE.md has your five project rules first, then short project facts,
+  then your global rules copied word for word. SUBMISSION.md follows the
+  brief's outline with the 12 findings ranked. B1 and B2 are now marked Fixed
+  there, and the Changes and Verification sections are filled in.
+
+  B1, a rep could complete a teammate's task:
+  - The check in taskService.ts:47 now compares the task's assignee with the
+    signed-in rep, which is the same rule that decides what a rep can list.
+  - Before the fix, the new test failed because Marcus's call completed Alicia's
+    task. After the fix it passes.
+  - I also added a test that a rep can still complete their own task, so the fix
+    can't lock reps out without a failing test.
+
+  B2, the overdue list ignored the rep filter:
+  - definitions.ts:14 now accepts "repId" instead of "status".
+  - Before the fix, all three new tests failed: the whole team came back, and
+    out-of-scope requests succeeded instead of returning 403. After the fix they
+    pass.
+
+  Verification:
+  - npm test passes 22 of 22 (the 17 original tests plus 5 new) and npm run 
+    typecheck is clean.
+  - Calling the API in-process:
+    - Marcus completing Alicia's task now gets 404.
+    - Marcus completing his own task, and Dana completing a team task, still
+      work.
+    - Dana's overdue list filtered to Alicia returns only Alicia's task;
+      filtered to Sam (another team) it gets 403.
+    - Marcus asking for Alicia's overdue tasks gets 403.
+  - In the browser, as Dana, the Overdue tab filtered to Alicia Chen shows only
+    "Collect signed utility authorization". My first click on Overdue didn't
+    register while the account switch was loading; the second worked.
+  - docs/ is unchanged, since both fixes restore what the docs already say. No
+    existing test was touched and nothing new was installed.
+
+  The review subagent is still running. I'll bring you its findings when it
+  finishes, and you decide what to act on. The dev server is still running for
+  later checks.
+
+  Decision for you: commits. I'd make two once the review is back:
+  1. fix(tasks): enforce rep visibility on complete and overdue filter with the
+     two fixes and their tests. It's one commit because both bugs' tests share a
+     file and an import line; splitting it would mean hand-building patches.
+  2. docs(repo): add CLAUDE.md and SUBMISSION.md.
+
+  Should I commit when the review comes back? After that, do you want Step 3
+  (tests for the HTTP layer, using the Supertest package that's already
+  installed), any of the logged smaller bugs, or your features?
+
+✻ Brewed for 7m 35s · done 2:05 PM
+
+› Message from general-purpose
+  I found no real bugs or missed requirements in the diff. I edited nothing in
+  the repo. `git status` is the same as when I started. All checks ran in
+  throwaway copies in the scratchpad.
+
+  **1. The fixes are correct and complete.**
+  - **B1:** `canAccess` for reps (`src/api/domain/taskService.ts:47`) now uses
+  the same rule as list visibility in `scope.ts` (reps get `assigneeIds:
+  [scope.userId]`). The manager branch already matched.
+  - **Order of checks:** visibility is checked before the already-completed
+  check. So a rep trying to complete a teammate's completed task now gets 404
+  instead of 409, which no longer reveals that the task exists.
+  - **Other paths:** `POST /:taskId/complete` is the only route that acts on a
+  task, and there is no route that fetches one task by id. Both list routes go
+  through `TaskScopeResolver`, and `taskRoutes.ts` passes `repId` to the overdue
+  route.
+  - **The web app needed nothing:** `src/web/api/client.ts` already sends
+  `repId` to `/api/tasks/overdue`, and `TaskList.test.tsx` checks that.
+  - **B2:** removing `status` from the overdue query's accepted filters changes
+  nothing anyone can see. No overdue criterion read that filter, and the route
+  never passed it. `engine.test.ts` "ignores filters the query does not accept"
+  still passes unchanged.
+
+  **2. The new tests catch the bugs.** I ran the new test file against the
+  original code (fixes reverted, new tests kept). Four tests fail, each for the
+  right reason:
+  - The narrowed overdue list returned the whole team: 1007, 1001, 1004.
+  - Both 403 cases succeeded instead of being refused.
+  - Marcus's call completed task-1004.
+
+  The test where a rep completes their own task passes either way, as the plan
+  intended. The fixture data and fixed clock give exactly task-1004 for Dana's
+  overdue list filtered to Alicia. The "left open" check really looks up
+  task-1004 in Alicia's full list, so it can't pass by accident.
+
+  **3. No existing test was weakened.** The test diff only adds an import and
+  five tests. No other test file changed.
+
+  **4. Run results.** In the repo, `npx vitest run` passed 22 of 22 and `npm run
+  typecheck` was clean. On the original code it passed 17 of 17 in 4 files,
+  matching SUBMISSION.md. A throwaway Supertest file against the fixed app
+  passed 14 of 14:
+  - A rep completing a teammate's task gets 404, whether the task is open or
+  completed.
+  - A rep's own completed task gets 409; their own open task gets 200.
+  - A manager completing a task on another team gets 404.
+  - Overdue filtered by `repId` narrows the list; an out-of-team rep or a
+  non-rep id gets 403. A rep asking about someone else gets 403, and asking
+  about themselves gets 200.
+  - A blank `repId` and `status` are ignored, and a repeated `repId` gets 400.
+
+  **5. SUBMISSION.md matches the code**, including the "What you changed" and
+  "Verification" sections added while I was reviewing. The Supertest checks
+  confirm items 6, 9 and 10:
+  - a malformed JSON body gets 500 `internal_error`;
+  - `bearer` in lower case gets 401;
+  - an unknown `/api` route with no token gets 401.
+
+  I also confirmed: no Supertest usage and no lint script exist, `formatDate` is
+  never used, and task-1004's title is "Collect signed utility authorization".
+  I could not check the browser claim myself, but it agrees with the code.
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● Agent "Review B1/B2 fix diff" finished · 4m 15s
+● The review subagent found no real bugs or missed requirements in the B1 and B2
+  fixes. It edited nothing, and git status still shows only our five files.
+
+  - The tests catch the bugs: it put back the original code in a throwaway copy
+    and kept the new tests. The four new tests failed, each for the right
+    reason, and the guard test passed as intended.
+  - No other way around the fixes: completing a task is the only route that acts
+    on a single task. Both list routes go through the same visibility check,
+    and the web app needed no change.
+  - No information leak: visibility is checked before the "already completed"
+    check. So a rep acting on a teammate's completed task gets 404, not 409, and
+    learns nothing about whether that task exists.
+  - Extra checks it ran: it wrote throwaway Supertest checks against the fixed
+    app, and all 14 passed. They also confirmed three of the smaller problems
+    logged in SUBMISSION.md: a malformed request body returns 500, a lowercase
+    bearer gets 401, and an unknown route with no token gets 401.
+
+  It's 14:06, about 23 minutes in, with 52 left (warning at 14:48).
+
+  Two decisions for you:
+  1. Commit now? I'd make two commits: fix(tasks): enforce rep visibility on 
+     complete and overdue filter with the two fixes and their tests, then
+     docs(repo): add CLAUDE.md and SUBMISSION.md.
+  2. What's next? The options are tests for the HTTP layer, any of the smaller
+     logged problems, or your features.
+
+✻ Crunched for 12m 42s · done 2:06 PM
+
+❯ commit, and test for the HTTP layer and any smaller logs, for furthur down    
+  the line skip the claude in chrome UI testing, i will test it myself, we are  
+  limited on time.                                                              
+
+● I'll make the two commits and, at the same time, ask which of the smaller
+  logged problems you want fixed. Some of them change API behaviour, which per
+  your rules is your call.
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● User answered Claude's questions:
+  ⎿  · Which of the smaller logged problems should I fix? Each gets a failing 
+     test first; anything not picked stays logged in SUBMISSION.md. → Malformed 
+     JSON gives 400 (Recommended), Fix README lint row (Recommended), Rep filter
+     load error, Case-insensitive Bearer
+
+● Changes are committed (67c8601 and 88805c4). Next, I'll add HTTP contract
+  tests, write failing tests first for the malformed JSON, Bearer, and rep
+  filter cases plus docs updates, then update the README lint row—skipping
+  browser checks as requested.
+
+  Searched for 1 pattern (ctrl+o to expand)
+
+● Write(src\api\app.test.ts)
+  ⎿  Wrote 206 lines to src\api\app.test.ts
+       1 import type { Express } from "express";
+       2 import request from "supertest";
+       3 import { beforeEach, describe, expect, it } from "vitest";
+       4 
+       5 import { createApp } from "./app";
+       6 import { fixedClock } from "./domain/clock";
+       7 
+       8 const referenceTime = new Date("2026-03-10T15:00:00.000Z");
+       9 
+      10 function asUser(token: string) {
+     … +229 lines (ctrl+o to expand)
+
+  Read 1 file, ran 1 shell command (ctrl+o to expand)
+
+● All 21 HTTP contract tests pass against the current code. Now the failing
+  tests for the three bug fixes, each next to the code it covers:
+
+● Write(src\api\http\errors.test.ts)
+  ⎿  Wrote 17 lines to src\api\http\errors.test.ts
+       1 import request from "supertest";
+       2 import { describe, expect, it } from "vitest";
+       3 
+       4 import { createApp } from "../app";
+       5 
+       7   it("returns invalid_request for a malformed JSON body", async 
+         () => {
+       8     const response = await request(createApp())
+       9       .post("/api/tasks/task-1003/complete")
+      10       .set("Authorization", "Bearer demo-marcus")
+     … +9 lines (ctrl+o to expand)
+
+● Write(src\api\auth\authenticate.test.ts)
+  ⎿  Wrote 17 lines to src\api\auth\authenticate.test.ts
+       1 import request from "supertest";
+       2 import { describe, expect, it } from "vitest";
+       3 
+       4 import { createApp } from "../app";
+       5 
+       7   it("accepts the Bearer scheme in any letter case", async () =>
+          {
+       8     const app = createApp();
+       9 
+      10     for (const scheme of ["Bearer", "bearer", "BEARER"]) {
+     … +8 lines (ctrl+o to expand)
+
+● Write(src\web\App.test.tsx)
+  ⎿  Wrote 54 lines to src\web\App.test.tsx
+       1 // @vitest-environment jsdom
+       2 import { cleanup, render, screen } from "@testing-library/react"
+         ;
+       4 import { afterEach, describe, expect, it, vi } from "vitest";
+       5 
+       6 import { App } from "./App";
+       7 
+       9   return new Response(JSON.stringify(body), { status, headers: {
+          "Content-Type": "application/json" } });
+      10 }
+     … +53 lines (ctrl+o to expand)
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● All three test cases fail for the expected reasons: lowercase "bearer"
+  triggers a 401, a malformed JSON body returns a 500, and the alert is missing
+  when the rep list fails. Next I'll apply the fixes along with the
+  corresponding doc updates in the same commit.
+
+● Update(src\api\http\errors.ts)
+  ⎿  Added 3 lines
+      30    } else if (error instanceof DomainError) {
+      31      status = statusByDomainCode[error.code] ?? 400;
+      32      body = { error: { code: error.code, message: error.message 
+          } };
+      33 +  } else if (isMalformedJsonBody(error)) {                     
+      34 +    status = 400;                                              
+      35 +    body = { error: { code: "invalid_request", message: "Reques
+         +t body must be valid JSON" } };                                
+      36    } else {
+      37      console.error(error);
+      38    }
+
+● Update(src\api\http\errors.ts)
+  ⎿  Added 5 lines
+      14    }
+      15  }
+      16  
+      17 +/** `express.json()` reports a body it cannot parse as a Syntax
+         +Error tagged `entity.parse.failed`. */                         
+      18 +function isMalformedJsonBody(error: unknown): boolean {        
+      19 +  return error instanceof SyntaxError && (error as { type?: unk
+         +nown }).type === "entity.parse.failed";                        
+      20 +}                                                              
+      21 +                                                               
+      22  const statusByDomainCode: Record<string, number> = {
+      23    not_found: 404,
+      24    forbidden: 403,
+
+● Update(src\api\auth\authenticate.ts)
+  ⎿  Added 2 lines, removed 1 line
+       4  import { HttpError } from "../http/errors";
+       5  import { buildRequestContext, type RequestContext } from "./req
+          uestContext";
+       6  
+       7 -const BEARER_PREFIX = "Bearer ";                               
+       7 +/** The scheme name is case-insensitive, as HTTP specifies. */ 
+       8 +const BEARER_HEADER = /^Bearer\s+(.+)$/i;                      
+       9  
+      10  /**
+      11   * Resolves the bearer token on the request to a signed-in user
+          . Tokens are the
+
+● Update(src\api\auth\authenticate.ts)
+  ⎿  Added 3 lines, removed 3 lines
+      13   */
+      14  export function authenticate(sessions: SessionRepository, direc
+          tory: DirectoryRepository): RequestHandler {
+      15    return async (req: Request, res: Response, next: NextFunction
+          ) => {
+      16 -    const header = req.get("authorization");                   
+      17 -    if (!header?.startsWith(BEARER_PREFIX)) {                  
+      16 +    const match = BEARER_HEADER.exec(req.get("authorization") ?
+         +? "");                                                         
+      17 +    if (!match) {                                              
+      18        throw new HttpError(401, "unauthenticated", "Missing bear
+          er token");
+      19      }
+      20  
+      21 -    const session = await sessions.findSessionByToken(header.sl
+         -ice(BEARER_PREFIX.length).trim());                             
+      21 +    const session = await sessions.findSessionByToken(match[1]!
+         +.trim());                                                      
+      22      const user = session ? await directory.findUserById(session
+          .userId) : undefined;
+      23      if (!user) {
+      24        throw new HttpError(401, "unauthenticated", "Session is n
+          ot valid");
+
+● Update(src\web\App.tsx)
+  ⎿  Added 9 lines
+      106          </nav>
+      107        </div>
+      108  
+      109 +      {isManager && reps.status === "error" && (              
+      110 +        <div className="state state-error" role="alert">      
+      111 +          <p>Could not load your reps. {reps.error.message}</p
+          +>                                                             
+      112 +          <button type="button" onClick={reps.reload}>        
+      113 +            Try again                                         
+      114 +          </button>                                           
+      115 +        </div>                                                
+      116 +      )}                                                      
+      117 +                                                              
+      118        <div className="filters">
+      119          {isManager && reps.status === "success" && <RepFilter 
+           reps={reps.data} value={repId} onChange={setRepId} />}
+      120          {view === "all" && (
+
+● Update(docs\api.md)
+  ⎿  Added 2 lines, removed 1 line
+      22  | `demo-marcus` | Marcus Bell | rep | North Metro |
+      23  | `demo-kai` | Kai Nakamura | rep | Coastal |
+      24  
+      25 -A missing or unknown token returns `401`.                      
+      25 +The `Bearer` scheme name is not case-sensitive. A missing or un
+         +known token                                                    
+      26 +returns `401`.                                                 
+      27  
+      28  ## Errors
+      29  
+
+● Update(docs\api.md)
+  ⎿  Added 1 line, removed 1 line
+      35  
+      36  | Status | `code` | When |
+      37  | --- | --- | --- |
+      38 -| 400 | `invalid_request` | A query parameter is malformed |   
+      38 +| 400 | `invalid_request` | A query parameter or the JSON reque
+         +st body is malformed |                                         
+      39  | 401 | `unauthenticated` | The session token is missing or unk
+          nown |
+      40  | 403 | `forbidden` | The request asks for data outside the use
+          r's visibility |
+      41  | 404 | `not_found` | The route or resource does not exist or i
+          s not visible |
+
+● Update(README.md)
+  ⎿  Removed 1 line
+       96  | `start:api` | Start the API without watch mode |
+       97  | `test` | Run the test suite once |
+       98  | `test:watch` | Run tests in watch mode |
+       99 -| `lint` | Lint the source with ESLint |                      
+       99  | `typecheck` | Type-check the whole project |
+      100  | `build` | Type-check and build the web app into `dist/` |
+      101  
+
+  Ran 2 shell commands (ctrl+o to expand)
+
+● All tests pass (46/46 across 8 files) and the build is clean. I'll now start
+  the review pass and update SUBMISSION.md.
+
+● Agent(Review HTTP tests and small fixes)  ⎿  Backgrounded agent (↓ to manage · ctrl+o to expand)
+
+● Update(SUBMISSION.md)
+  ⎿  Added 1 line, removed 1 line
+       7  
+       8  1. **Reps can complete their teammates' tasks.** The docs say r
+          eps see only their own tasks and anything else is "not found", 
+          but `POST /api/tasks/:taskId/complete` checks the task's team i
+          nstead of its assignee (`src/api/domain/taskService.ts`). This 
+          is an access-control hole. **Fixed.**
+       9  2. **The Overdue view ignores the rep filter.** `GET /api/tasks
+          /overdue?repId=...` returns the whole team, and asking for a re
+          p outside your visibility returns `200` instead of `403`. Manag
+          ers use this view before their weekly check-in, so the filter s
+          ilently shows the wrong people. The cause is that the overdue q
+          uery does not accept `repId` (`src/api/domain/taskQueries/defin
+          itions.ts`). **Fixed.**
+      10 -3. **No HTTP-level tests.** The README says the API tests call 
+         -the Express app with Supertest, but none exist. Sign-in checks,
+         - the error format, and the `400`, `401`, `403`, `404` and `409`
+         - responses have no tests, and neither do completing an already 
+         -completed task, `/api/me` or `/api/team/reps`. Proposed next.  
+      10 +3. **No HTTP-level tests.** The README says the API tests call 
+         +the Express app with Supertest, but none exist. Sign-in checks,
+         + the error format, and the `400`, `401`, `403`, `404` and `409`
+         + responses have no tests, and neither do completing an already 
+         +completed task, `/api/me` or `/api/team/reps`. **Done:** `src/a
+         +pi/app.test.ts` adds 21 contract tests, so the README's claim i
+         +s now true.                                                    
+      11  4. **Task visibility is written twice:** once for lists (`src/a
+          pi/domain/taskQueries/scope.ts`) and once for completing a task
+           (`TaskService.canAccess`). That duplication is how item 1 crep
+          t in. Logged, not fixed: merging them is a refactor beyond the 
+          bug fix.
+      12  5. **The README lists `npm run lint`, but there is no lint scri
+          pt or ESLint setup.** Logged, not fixed: fixing it means adding
+           dependencies.
+      13  6. **A malformed JSON request body returns `500 internal_error`
+          ** and is logged as an unexpected error. It should be a `400`. 
+          Logged, not fixed: low impact, since the only `POST` endpoint t
+          akes no body, and `docs/api.md` would need updating.
+
+● Update(SUBMISSION.md)
+  ⎿  Added 1 line, removed 1 line
+       9  2. **The Overdue view ignores the rep filter.** `GET /api/tasks
+          /overdue?repId=...` returns the whole team, and asking for a re
+          p outside your visibility returns `200` instead of `403`. Manag
+          ers use this view before their weekly check-in, so the filter s
+          ilently shows the wrong people. The cause is that the overdue q
+          uery does not accept `repId` (`src/api/domain/taskQueries/defin
+          itions.ts`). **Fixed.**
+      10  3. **No HTTP-level tests.** The README says the API tests call 
+          the Express app with Supertest, but none exist. Sign-in checks,
+           the error format, and the `400`, `401`, `403`, `404` and `409`
+           responses have no tests, and neither do completing an already 
+          completed task, `/api/me` or `/api/team/reps`. **Done:** `src/a
+          pi/app.test.ts` adds 21 contract tests, so the README's claim i
+          s now true.
+      11  4. **Task visibility is written twice:** once for lists (`src/a
+          pi/domain/taskQueries/scope.ts`) and once for completing a task
+           (`TaskService.canAccess`). That duplication is how item 1 crep
+          t in. Logged, not fixed: merging them is a refactor beyond the 
+          bug fix.
+      12 -5. **The README lists `npm run lint`, but there is no lint scri
+         -pt or ESLint setup.** Logged, not fixed: fixing it means adding
+         - dependencies.                                                 
+      12 +5. **The README lists `npm run lint`, but there is no lint scri
+         +pt or ESLint setup.** **Fixed in the docs:** I removed the row 
+         +from the README, because adding ESLint would mean new dependenc
+         +ies.                                                           
+      13  6. **A malformed JSON request body returns `500 internal_error`
+          ** and is logged as an unexpected error. It should be a `400`. 
+          Logged, not fixed: low impact, since the only `POST` endpoint t
+          akes no body, and `docs/api.md` would need updating.
+      14  7. **Completing a task blanks the whole list to "Loading tasks…
+          "** while it reloads. Logged, not fixed: UX polish.
+      15  8. **The rep filter disappears without a message if loading the
+           team's reps fails** (`src/web/App.tsx`). Logged, not fixed.
+
+● Update(SUBMISSION.md)
+  ⎿  Added 1 line, removed 1 line
+      10  3. **No HTTP-level tests.** The README says the API tests call 
+          the Express app with Supertest, but none exist. Sign-in checks,
+           the error format, and the `400`, `401`, `403`, `404` and `409`
+           responses have no tests, and neither do completing an already 
+          completed task, `/api/me` or `/api/team/reps`. **Done:** `src/a
+          pi/app.test.ts` adds 21 contract tests, so the README's claim i
+          s now true.
+      11  4. **Task visibility is written twice:** once for lists (`src/a
+          pi/domain/taskQueries/scope.ts`) and once for completing a task
+           (`TaskService.canAccess`). That duplication is how item 1 crep
+          t in. Logged, not fixed: merging them is a refactor beyond the 
+          bug fix.
+      12  5. **The README lists `npm run lint`, but there is no lint scri
+          pt or ESLint setup.** **Fixed in the docs:** I removed the row 
+          from the README, because adding ESLint would mean new dependenc
+          ies.
+      13 -6. **A malformed JSON request body returns `500 internal_error`
+         -** and is logged as an unexpected error. It should be a `400`. 
+         -Logged, not fixed: low impact, since the only `POST` endpoint t
+         -akes no body, and `docs/api.md` would need updating.           
+      13 +6. **A malformed JSON request body returns `500 internal_error`
+         +** and is logged as an unexpected error. It should be a `400`. 
+         +**Fixed:** it now returns `400 invalid_request`, and the error 
+         +table in `docs/api.md` says so.                                
+      14  7. **Completing a task blanks the whole list to "Loading tasks…
+          "** while it reloads. Logged, not fixed: UX polish.
+      15  8. **The rep filter disappears without a message if loading the
+           team's reps fails** (`src/web/App.tsx`). Logged, not fixed.
+      16  9. **The bearer scheme is case-sensitive:** `bearer demo-dana` 
+          gets `401`. Logged, not fixed: the sign-in is demo-only.
+
+● Update(SUBMISSION.md)
+  ⎿  Added 1 line, removed 1 line
+      11  4. **Task visibility is written twice:** once for lists (`src/a
+          pi/domain/taskQueries/scope.ts`) and once for completing a task
+           (`TaskService.canAccess`). That duplication is how item 1 crep
+          t in. Logged, not fixed: merging them is a refactor beyond the 
+          bug fix.
+      12  5. **The README lists `npm run lint`, but there is no lint scri
+          pt or ESLint setup.** **Fixed in the docs:** I removed the row 
+          from the README, because adding ESLint would mean new dependenc
+          ies.
+      13  6. **A malformed JSON request body returns `500 internal_error`
+          ** and is logged as an unexpected error. It should be a `400`. 
+          **Fixed:** it now returns `400 invalid_request`, and the error 
+          table in `docs/api.md` says so.
+      14 -7. **Completing a task blanks the whole list to "Loading tasks…
+         -"** while it reloads. Logged, not fixed: UX polish.            
+      14 +7. **Completing a task blanks the whole list to "Loading tasks…
+         +"** while it reloads. Logged, not fixed: `docs/domain.md` says 
+         +each view shows a loading message while it fetches, so changing
+         + this is a product decision rather than a bug fix.             
+      15  8. **The rep filter disappears without a message if loading the
+           team's reps fails** (`src/web/App.tsx`). Logged, not fixed.
+      16  9. **The bearer scheme is case-sensitive:** `bearer demo-dana` 
+          gets `401`. Logged, not fixed: the sign-in is demo-only.
+      17  10. **An unknown `/api` route without a token returns `401`, no
+          t `404`,** because the sign-in check runs first. Logged, not fi
+          xed: defensible as it is.
+
+● Update(SUBMISSION.md)
+  ⎿  Added 1 line, removed 1 line
+      12  5. **The README lists `npm run lint`, but there is no lint scri
+          pt or ESLint setup.** **Fixed in the docs:** I removed the row 
+          from the README, because adding ESLint would mean new dependenc
+          ies.
+      13  6. **A malformed JSON request body returns `500 internal_error`
+          ** and is logged as an unexpected error. It should be a `400`. 
+          **Fixed:** it now returns `400 invalid_request`, and the error 
+          table in `docs/api.md` says so.
+      14  7. **Completing a task blanks the whole list to "Loading tasks…
+          "** while it reloads. Logged, not fixed: `docs/domain.md` says 
+          each view shows a loading message while it fetches, so changing
+           this is a product decision rather than a bug fix.
+      15 -8. **The rep filter disappears without a message if loading the
+         - team's reps fails** (`src/web/App.tsx`). Logged, not fixed.   
+      15 +8. **The rep filter disappears without a message if loading the
+         + team's reps fails** (`src/web/App.tsx`). **Fixed:** managers n
+         +ow see "Could not load your reps." with a Try again button.    
+      16  9. **The bearer scheme is case-sensitive:** `bearer demo-dana` 
+          gets `401`. Logged, not fixed: the sign-in is demo-only.
+      17  10. **An unknown `/api` route without a token returns `401`, no
+          t `404`,** because the sign-in check runs first. Logged, not fi
+          xed: defensible as it is.
+      18  11. **The demo account list shows only the first team for a man
+          ager who leads several.** Logged, not fixed: the demo data has 
+          one team per manager.
+
+● Update(SUBMISSION.md)
+  ⎿  Added 1 line, removed 1 line
+      13  6. **A malformed JSON request body returns `500 internal_error`
+          ** and is logged as an unexpected error. It should be a `400`. 
+          **Fixed:** it now returns `400 invalid_request`, and the error 
+          table in `docs/api.md` says so.
+      14  7. **Completing a task blanks the whole list to "Loading tasks…
+          "** while it reloads. Logged, not fixed: `docs/domain.md` says 
+          each view shows a loading message while it fetches, so changing
+           this is a product decision rather than a bug fix.
+      15  8. **The rep filter disappears without a message if loading the
+           team's reps fails** (`src/web/App.tsx`). **Fixed:** managers n
+          ow see "Could not load your reps." with a Try again button.
+      16 -9. **The bearer scheme is case-sensitive:** `bearer demo-dana` 
+         -gets `401`. Logged, not fixed: the sign-in is demo-only.       
+      16 +9. **The bearer scheme is case-sensitive:** `bearer demo-dana` 
+         +gets `401`, although HTTP treats the scheme name as case-insens
+         +itive. **Fixed**, and `docs/api.md` notes it.                  
+      17  10. **An unknown `/api` route without a token returns `401`, no
+          t `404`,** because the sign-in check runs first. Logged, not fi
+          xed: defensible as it is.
+      18  11. **The demo account list shows only the first team for a man
+          ager who leads several.** Logged, not fixed: the demo data has 
+          one team per manager.
+      19  12. **`formatDate` in `src/web/format.ts` is never used.** Logg
+          ed, not fixed: harmless dead code.
+
+● Update(SUBMISSION.md)
+  ⎿  Added 6 lines, removed 1 line
+      23  - **Reps can no longer complete their teammates' tasks** (`src/
+          api/domain/taskService.ts`). For reps, the completion check now
+           compares the task's assignee with the signed-in rep, the same 
+          rule that decides which tasks a rep can list. Acting on someone
+           else's task now returns `404`, as `docs/api.md` describes.
+      24  - **The Overdue view's rep filter works** (`src/api/domain/task
+          Queries/definitions.ts`). The overdue query now accepts `repId`
+          , so the filter narrows the list, and asking for a rep outside 
+          your visibility returns `403`, the same as `GET /api/tasks`.
+      25  - **Five tests in `src/api/domain/taskService.test.ts` pin both
+           rules.** Four of them failed before the fixes. The fifth check
+          s that reps can still complete their own tasks, so the fix cann
+          ot quietly over-restrict them.
+      26 +- **Added HTTP contract tests** (`src/api/app.test.ts`, 21 test
+         +s) using the Supertest package that was already installed. They
+         + pin sign-in, the error format, the filters, and the `400`, `40
+         +1`, `403`, `404` and `409` responses described in `docs/api.md`
+         +.                                                              
+      27 +- **A malformed JSON body now gets `400 invalid_request`** inst
+         +ead of `500` (`src/api/http/errors.ts`), and it is no longer lo
+         +gged as an unexpected error.                                   
+      28 +- **The `Bearer` scheme name is no longer case-sensitive** (`sr
+         +c/api/auth/authenticate.ts`), as HTTP specifies.               
+      29 +- **Managers see a message with a Try again button when the rep
+         + list fails to load** (`src/web/App.tsx`), instead of the rep f
+         +ilter silently disappearing.                                   
+      30 +- **Removed the `lint` script from the README's table**, becaus
+         +e it does not exist.                                           
+      31  - **Added `CLAUDE.md`** with the working rules for AI agents in
+           this repository, plus this file.
+      27 -- No API behaviour changed beyond restoring what the docs alrea
+         -dy say, so `docs/` is unchanged.                               
+      32 +- The visibility fixes restore what the docs already said. The 
+         +JSON and `Bearer` changes are deliberate API changes, so `docs/
+         +api.md` is updated alongside them.                             
+      33  
+      34  ## What you decided not to do
+      35  
+
+● Update(SUBMISSION.md)
+  ⎿  Added 1 line, removed 1 line
+      34  ## What you decided not to do
+      35  
+      36  - Left the `engine.test.ts` test "ignores filters the query doe
+          s not accept" unchanged. Its name did not match the overdue que
+          ry, which listed `status` as accepted, but its assertion is cor
+          rect, and the fix for item 2 makes the name accurate.
+      37 -- Items 4 to 12 above, for the reasons given there.            
+      37 +- Items 4, 7, 10, 11 and 12 above, for the reasons given there.
+      38  
+      39  ## Verification
+      40  
+
+● Update(SUBMISSION.md)
+  ⎿  Added 4 lines
+      46    - Dana's overdue list filtered to Alicia returns only Alicia'
+          s task; filtered to Sam (another team) it gets `403`; unfiltere
+          d it is unchanged.
+      47    - Marcus asking for Alicia's overdue tasks gets `403`.
+      48  - In the browser (`npm run dev`), signed in as Dana, the Overdu
+          e tab filtered to Alicia Chen shows only "Collect signed utilit
+          y authorization".
+      49 +- The 21 contract tests passed against the code before the smal
+         +ler fixes, so they describe existing behaviour rather than new 
+         +behaviour.                                                     
+      50 +- The smaller fixes were test-first too. Before the fixes, the 
+         +`Bearer` test got `401` instead of `200`, the JSON test got `50
+         +0` instead of `400`, and the app test found no error message. A
+         +ll three passed after the fixes.                               
+      51 +- Final run: `npm test` passed 46 of 46 tests in 8 files, and `
+         +npm run build` (type-check plus production build) was clean.   
+      52 +- The rep-list message is covered by a component test (`src/web
+         +/App.test.tsx`). I chose to do the browser check for it myself 
+         +instead of having the AI drive the browser, to save time.      
+      53  
+      54  ## Working with AI
+      55  
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● The HTTP-layer tests and all four smaller fixes are in, each with a test that
+  failed first. 46 of 46 tests pass and the build is clean. It's 14:15, about 32
+  minutes in, so roughly 33 minutes of work remain before the 14:48 warning.
+
+  What changed (not committed yet):
+  - HTTP contract tests (src/api/app.test.ts, 21 tests): they cover sign-in, the
+    error format, the filters, and the 400, 401, 403, 404 and 409 responses
+    from docs/api.md. All 21 passed against the existing code, so they record
+    current behaviour. The README's Supertest claim is now true.
+  - Malformed JSON body: now returns 400 instead of 500 and is no longer logged
+    as an unexpected error (errors.ts). Before the fix its test got 500.
+  - Bearer scheme: bearer and BEARER are now accepted (authenticate.ts). Missing
+    and unknown tokens still get 401. Before the fix the test got 401 for
+    bearer.
+  - Rep list failure: managers now see "Could not load your reps." with a Try
+    again button, using the same error box as the rest of the app (App.tsx).
+    Before the fix the test found no message.
+  - README: removed the lint row, since that script doesn't exist.
+  - Docs: the JSON and Bearer changes are deliberate API changes, so docs/api.md
+    is updated for both.
+  - SUBMISSION.md: the statuses, the changes and the test results are filled in.
+
+  Still logged and left alone:
+  - visibility written in two places (merging is a refactor);
+  - the list blanking during reload (docs/domain.md says each view shows a
+    loading message while it fetches, so that's a product call);
+  - unknown routes returning 401 without a token;
+  - demo accounts showing only a manager's first team;
+  - the unused formatDate.
+
+  To check the rep-list message yourself: the dev server is still running at
+  http://localhost:5173. In Chrome DevTools, open Network, right-click a
+  /api/team/reps request, choose Block request URL, then reload while signed in
+  as a manager.
+
+  The review subagent is still running over this diff. Once its findings are in,
+  I'd make four commits:
+  1. test(api): add HTTP contract tests with Supertest
+  2. fix(api): return 400 for bad JSON, accept any Bearer case (with the
+     docs/api.md updates)
+  3. fix(web): show a retry when the rep list fails to load
+  4. docs(repo): drop missing lint script; update SUBMISSION.md
+
+  Should I commit once the review is in? Then we can start your features. If you
+  tell me what they are now, I'll plan the first one while the review finishes.
+
+✻ Brewed for 5m 33s · done 2:15 PM
+
+❯ gop ahead and commit it , i am opend a worktree in a sperate session to work  
+  on adding the feature                                                         
+
+● Committing now. The review subagent hasn't reported yet; I'll pass on anything
+  it finds when it does.
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● All four commits are on main and the working tree is clean. It's 14:22: 39
+  minutes in, 26 until the 14:48 warning and 36 until the hard stop at 14:58.
+
+  344632f docs(repo): drop missing lint script; update SUBMISSION.md
+  ab81c2e fix(web): show a retry when the rep list fails to load
+  7a537f7 fix(api): return 400 for bad JSON, accept any Bearer case
+  9e82acb test(api): add HTTP contract tests with Supertest
+  88805c4 docs(repo): add CLAUDE.md and SUBMISSION.md
+  67c8601 fix(tasks): enforce rep visibility on complete and overdue filter
+
+  Three things for your feature worktree:
+
+  - It may be missing these commits. If you created the worktree before 14:22,
+    rebase it onto main before you start. That also avoids conflicts in
+    SUBMISSION.md.
+  - Merge it back before the end. The brief wants everything on a single branch,
+    so merge your feature branch into main before 14:58.
+  - Port clash: my dev server from this checkout is still running on ports 5173
+    and 3001. If you run npm run dev in the worktree, the API will fail because
+    port 3001 is in use, and that stops both processes. Tell me and I'll stop
+    mine.
+
+  The review subagent is still running over the four commits. I'll bring you its
+  findings when it reports, and the 10-minute warning at 14:48.
+
+✻ Worked for 41s · done 2:22 PM
+
+› Message from general-purpose
+  I found two low-severity problems and no bugs in the main fixes. I didn't edit
+  the repo: all experiments ran in a scratch copy that I've since deleted, and
+  `git status` is the same as when I started.
+
+  **Findings**
+
+  1. **The auth regex also accepts other whitespace after `Bearer`**
+  (`src/api/auth/authenticate.ts:8`). `\s+` lets any whitespace sit between
+  `Bearer` and the token. The old code needed a literal `"Bearer "` with a
+  space. I checked over HTTP: `Authorization: Bearer<TAB>demo-dana` and
+  `Bearer<non-breaking space>demo-dana` returned 401 before and return 200 now.
+  This change isn't documented: `docs/api.md` only mentions case. HTTP itself
+  only allows spaces at that point. It has no security impact, because the token
+  must still match exactly. If you want the old rule back apart from case,
+  `/^Bearer (.+)$/i` does it, since the existing `.trim()` handles any extra
+  spaces.
+
+  2. **`CLAUDE.md:17` is now out of date.** It still says "There is no `lint`
+  script, although the README lists one." After the README edit, the second half
+  is false.
+
+  **An older bug in the same area, not caused by this change and outside the
+  agreed scope.** The JSON parser's other client errors still come back as a
+  logged `500 internal_error`:
+  - a body over 100 kB (the parser raises a 413);
+  - a non-UTF charset such as `application/json; charset=latin1` (the parser
+  raises a 415).
+
+  Your project rules say to record a bug like this in `SUBMISSION.md` rather
+  than fix it now.
+
+  **Checked and fine**
+
+  - **Bug tests really test the bugs.** With the three source files reverted to
+  HEAD, exactly the three bug tests fail: 401 instead of 200, 500 instead of
+  400, and no `role="alert"` found. The 21 contract tests and the 22 existing
+  tests all pass on the old code, so the contract tests describe existing
+  behaviour.
+  - **Current state.** 46 of 46 tests pass and `npm run typecheck` is clean.
+  - **No flakiness.** Five runs in shuffled order all passed. Each test builds a
+  fresh app with a fixed clock, so nothing depends on time or test order. As a
+  sanity check I changed the 403 mapping to 404, and the four "forbidden"
+  contract tests failed, so those assertions do catch wrong statuses.
+  - **Auth edge cases.** No header that worked before is now rejected. All of
+  these still get 401 `unauthenticated`:
+    - `Bearer` alone, and `Bearer` followed only by spaces;
+    - `Bearerdemo-dana` with no space;
+    - other schemes such as `Basic` or `Token`;
+    - an unknown token, or a known token in the wrong case.
+  - **JSON handling.** Malformed bodies, and bodies that are valid JSON but not
+  an object or array (`"str"`, `123`), get 400 `invalid_request` with no
+  `console.error`. A plain `Error`, a `SyntaxError` not from the JSON parser,
+  and a thrown string still get a logged 500. A malformed body sent without a
+  token also gets 400 rather than 401, because body parsing runs before sign-in;
+  the docs don't specify this, so it isn't a bug.
+  - **App.tsx.** A rep account never calls `/api/team/reps` and never sees the
+  new block; I confirmed this with a throwaway test. The markup matches the
+  existing error states, and nothing renders twice.
+  - **Contract tests against the docs.** Every assertion matches `docs/api.md`
+  and `docs/domain.md`. The only undocumented detail they pin is the order of
+  the demo accounts (`accounts[0]` is Dana), which is fixed by the fixture data.
+  - **Docs.** The `docs/api.md` and `README.md` edits are accurate.
+  `SUBMISSION.md` is also modified, though it wasn't on your list. Its claims
+  hold: 21 contract tests, 46 tests in 8 files, and the three failure messages
+  it reports. No existing test file was changed.
+
+  I didn't run `npm run build`, because it wasn't on the allowed list.
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● Agent "Review HTTP tests and small fixes" finished · 7m 53s
+
+● Review confirmed the three bug fixes and all 46 tests pass correctly, with two
+  minor issues found: the Bearer check is now slightly looser than documented
+  (easy fix with a literal space), and CLAUDE.md has an outdated reference. I'll
+  also log a pre-existing out-of-scope bug—malformed request bodies still
+  returning 500 instead of 413/415—in SUBMISSION.md.
+
+● User answered Claude's questions:
+  ⎿  · Which review follow-ups should I fix and commit on main? Note that your 
+     feature worktree may also edit SUBMISSION.md, so expect a small merge 
+     there. → Space-only after Bearer (Recommended), Fix stale CLAUDE.md line 
+     (Recommended), Log 413/415 bug (Recommended)
+
+● All three approved. Starting with the failing test for the Bearer separator:
+
+● Update(src\api\auth\authenticate.test.ts)
+  ⎿  Added 10 lines
+      14        expect(response.body.user.id).toBe("u-dana");
+      15      }
+      16    });
+      17 +                                                               
+      18 +  it("requires a space between the scheme and the token", async
+         + () => {                                                       
+      19 +    const app = createApp();                                   
+      20 +                                                               
+      21 +    for (const separator of ["\t", " "]) {                     
+      22 +      const response = await request(app).get("/api/me").set("A
+         +uthorization", `Bearer${separator}demo-dana`);                 
+      23 +                                                               
+      24 +      expect(response.status).toBe(401);                       
+      25 +    }                                                          
+      26 +  });                                                          
+      27  });
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● Red: a tab after Bearer gets 200. Now the fix, plus the CLAUDE.md and
+  SUBMISSION.md updates:
+
+● Update(src\api\auth\authenticate.ts)
+  ⎿  Added 2 lines, removed 2 lines
+       4  import { HttpError } from "../http/errors";
+       5  import { buildRequestContext, type RequestContext } from "./req
+          uestContext";
+       6  
+       7 -/** The scheme name is case-insensitive, as HTTP specifies. */ 
+       8 -const BEARER_HEADER = /^Bearer\s+(.+)$/i;                      
+       7 +/** The scheme name is case-insensitive, as HTTP specifies; a s
+         +pace separates it from the token. */                           
+       8 +const BEARER_HEADER = /^Bearer (.+)$/i;                        
+       9  
+      10  /**
+      11   * Resolves the bearer token on the request to a signed-in user
+          . Tokens are the
+● Update(CLAUDE.md)
+  ⎿  Added 1 line, removed 1 line
+      14  
+      15  - This is a 75-minute timeboxed exercise (see `BRIEF.md`). Leav
+          e the last 10 minutes for `SUBMISSION.md` and the final commit.
+      16  - Stack: TypeScript. Express 5 API in `src/api`, backed by in-m
+          emory fixture data. React + Vite web app in `src/web`. Response
+           types shared by both in `src/shared`.
+      17 -- Commands: `npm test` (Vitest), `npm run typecheck`, `npm run 
+         -build`, `npm run dev` (web app on http://localhost:5173, API on
+         - http://localhost:3001). There is no `lint` script, although th
+         -e README lists one.                                            
+      17 +- Commands: `npm test` (Vitest), `npm run typecheck`, `npm run 
+         +build`, `npm run dev` (web app on http://localhost:5173, API on
+         + http://localhost:3001). There is no `lint` script.            
+      18  - Server request flow: route → `authenticate` builds the reques
+          t context → service → repository.
+      19  - Task visibility is enforced in two places that must stay in s
+          tep: `src/api/domain/taskQueries/scope.ts` (listing tasks) and 
+          `TaskService.canAccess` in `src/api/domain/taskService.ts` (com
+          pleting a task).
+      20  - Product rules are in `docs/domain.md`. The HTTP API is in `do
+          cs/api.md`.
+
+● Update(SUBMISSION.md)
+  ⎿  Added 1 line
+      17  10. **An unknown `/api` route without a token returns `401`, no
+          t `404`,** because the sign-in check runs first. Logged, not fi
+          xed: defensible as it is.
+      18  11. **The demo account list shows only the first team for a man
+          ager who leads several.** Logged, not fixed: the demo data has 
+          one team per manager.
+      19  12. **`formatDate` in `src/web/format.ts` is never used.** Logg
+          ed, not fixed: harmless dead code.
+      20 +13. **Other request-body errors still return a logged `500`:** 
+         +a body over 100 kB (the JSON parser reports `413`) and an unsup
+         +ported charset such as `charset=latin1` (`415`). The review aft
+         +er the JSON fix found this. Logged, not fixed: it is outside th
+         +e agreed scope, and `docs/api.md` would need new status codes. 
+      21  
+      22  ## What you changed
+      23  
+
+● Update(SUBMISSION.md)
+  ⎿  Added 1 line, removed 1 line
+      35  ## What you decided not to do
+      36  
+      37  - Left the `engine.test.ts` test "ignores filters the query doe
+          s not accept" unchanged. Its name did not match the overdue que
+          ry, which listed `status` as accepted, but its assertion is cor
+          rect, and the fix for item 2 makes the name accurate.
+      38 -- Items 4, 7, 10, 11 and 12 above, for the reasons given there.
+      38 +- Items 4, 7, 10, 11, 12 and 13 above, for the reasons given th
+         +ere.                                                           
+      39  
+      40  ## Verification
+      41  
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● Green: 47/47 tests and typecheck clean. Committing both:
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● All three follow-ups are committed on main and the working tree is clean. It's
+  14:25: 23 minutes until the 14:48 warning and 33 until the 14:58 stop.
+
+  - a82bc4a fix(auth): require a space after the Bearer scheme: the check is now
+    /^Bearer (.+)$/i. Only letter case is relaxed, as docs/api.md says; a tab
+    or non-breaking space after Bearer gets 401 again. The new test got 200
+    before the fix and 401 after. All 47 tests pass and typecheck is clean.
+  - 081910a docs(repo): fix stale lint note; log body-parser 500s: the stale
+    line in CLAUDE.md is fixed. The oversized-body and unsupported-charset 500s
+    are logged as item 13 in SUBMISSION.md, not fixed.
+
+  For your feature worktree:
+  - main is now at 081910a. Rebase onto it, then merge back into main before
+    14:58.
+  - My dev server is still on ports 5173 and 3001. Say the word and I'll stop
+    it.
+
+  SUBMISSION.md still needs the end time and the "Working with AI" section. At
+  the 14:48 warning I can draft "Working with AI" from this session: the rules
+  file, plan approval, test-first fixes, the browser check, and the review that
+  caught the \s+ regex. You'd then edit it into your own words.
+
+✻ Sautéed for 17m 8s · done 2:25 PM
+
+※ recap: You're improving the Field Operations app within the 75-minute timebox, and all the bug fixes and HTTP tests are committed on main. Next, rebase your feature worktree onto main and merge it back before 14:58. (disable recaps in /config)
+
+❯ wait on it, here is what i want you to add in the submission.md , add a       
+  future deploy to prodcution section, which show the simplest step of deployin 
+  this project to production, it should just enlist the system architecture     
+  flow, no code. here is what it looks like, frontend goes to vercel, backend   
+  goes to railway, and database and authentication layer goes to supabese.      
+  draft it now,                                                                 
+
+  Read 1 file (ctrl+o to expand)
+
+● I'll add the new section at the end and fix the Verification line, which still
+  says 46 tests instead of 47. First, I'll do a quick rebuild to confirm the
+  correct count.
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● Update(SUBMISSION.md)
+  ⎿  Added 21 lines
+      55  ## Working with AI
+      56  
+      57  _To be filled in._
+      58 +                                                               
+      59 +## Future: deploying to production                             
+      60 +                                                               
+      61 +I did not do this in the exercise, because the project rules ru
+         +le out new dependencies and outside services. This is the simpl
+         +est route I would take.                                        
+      62 +                                                               
+      63 +**Flow:** browser → Vercel (web app) → Railway (API) → Supabase
+         + (database and sign-in)                                        
+      64 +                                                               
+      65 +1. **Supabase holds the data and handles sign-in.**            
+      66 +   - A Postgres database with users, teams and tasks, in the sa
+         +me shapes the API already uses, seeded with today's demo data. 
+      67 +   - Supabase Auth signs people in. Each account links to a use
+         +r record that carries its role (manager or rep) and its team.  
+      68 +2. **Railway runs the API.**                                   
+      69 +   - The Express API runs as a Node service. It already reads i
+         +ts port from `PORT`, which Railway sets.                       
+      70 +   - The Supabase project URL and key live in Railway's environ
+         +ment settings, never in the repository.                        
+      71 +   - Two parts change. The in-memory fixture repositories are r
+         +eplaced by Supabase-backed ones behind the same repository inte
+         +rfaces. The sign-in check verifies Supabase access tokens inste
+         +ad of the demo tokens. Routes, services and the visibility rule
+         +s stay as they are.                                            
+      72 +   - The demo accounts endpoint and the generated fixture data 
+         +are removed.                                                   
+      73 +   - The API currently starts through `tsx`, a development depe
+         +ndency, so Railway must either keep development dependencies in
+         +stalled or run a build step first.                             
+      74 +3. **Vercel serves the web app.**                              
+      75 +   - Vercel builds the React app with `npm run build` and serve
+         +s the static files.                                            
+      76 +   - A Vercel rewrite forwards `/api/*` to the Railway API, so 
+         +the web app keeps its current paths and needs no cross-origin s
+         +etup.                                                          
+      77 +   - Supabase sign-in replaces the demo account switcher. The w
+         +eb app sends the Supabase access token as the bearer token, the
+         + same way it sends the demo token today.                       
+      78 +4. **Check it.** `/api/health` answers on Railway. Signing in a
+         +s a manager and as a rep shows each person only the tasks they 
+         +are allowed to see.                                            
+
+● Update(SUBMISSION.md)
+  ⎿  Added 2 lines, removed 1 line
+      49  - In the browser (`npm run dev`), signed in as Dana, the Overdu
+          e tab filtered to Alicia Chen shows only "Collect signed utilit
+          y authorization".
+      50  - The 21 contract tests passed against the code before the smal
+          ler fixes, so they describe existing behaviour rather than new 
+          behaviour.
+      51  - The smaller fixes were test-first too. Before the fixes, the 
+          `Bearer` test got `401` instead of `200`, the JSON test got `50
+          0` instead of `400`, and the app test found no error message. A
+          ll three passed after the fixes.
+      52 -- Final run: `npm test` passed 46 of 46 tests in 8 files, and `
+         -npm run build` (type-check plus production build) was clean.   
+      52 +- After the smaller fixes, `npm test` passed 46 of 46 tests in 
+         +8 files.                                                       
+      53 +- The review then found that the new `Bearer` check also accept
+         +ed a tab after the scheme. I tightened it test-first: the new t
+         +est got `200` before and `401` after. Final run: `npm test` pas
+         +sed 47 of 47 tests in 8 files, and `npm run build` (type-check 
+         +plus production build) was clean.                              
+      54  - The rep-list message is covered by a component test (`src/web
+          /App.test.tsx`). I chose to do the browser check for it myself 
+          instead of having the AI drive the browser, to save time.
+      55  
+      56  ## Working with AI
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● I've drafted the deploy section at the end of SUBMISSION.md. It isn't
+  committed, so you can edit it first. It's 14:33: 15 minutes until the warning
+  and 25 until the 14:58 stop.
+
+  Future: deploying to production
+
+  Flow: browser → Vercel (web app) → Railway (API) → Supabase (database and
+  sign-in)
+
+  1. Supabase:
+     - a Postgres database for users, teams and tasks, seeded with the demo
+       data;
+     - Supabase Auth for sign-in, with each account linked to a user record that
+       carries its role and team.
+  2. Railway:
+     - runs the Express API, which already reads PORT;
+     - keeps the Supabase URL and key in environment settings;
+     - two parts of the code change: the in-memory data is replaced by
+       Supabase-backed storage, and the sign-in check verifies Supabase tokens
+       instead of the demo tokens. Routes, services and visibility rules stay
+       the same;
+     - the demo accounts endpoint goes away.
+  3. Vercel:
+     - builds and serves the React app;
+     - a rewrite forwards /api/* to Railway, so the paths stay the same and no
+       cross-origin setup is needed;
+     - Supabase sign-in replaces the account switcher, and the token is sent as
+       the Bearer token, the same way as today.
+  4. Check: /api/health answers, and a manager and a rep each see only their own
+     visible tasks.
+
+  Two notes I added beyond your outline; cut them if you want it shorter:
+  - The section says which parts of the code would have to change.
+  - The API currently starts through tsx, a development dependency, so Railway
+    needs development dependencies installed or a build step.
+
+  I also corrected the Verification section: the final run is now 47 of 47
+  tests, and the build is still clean (I re-ran it).
+
+  Should I commit this as docs(submission): add production deployment outline?
+  Your worktree may also edit SUBMISSION.md, so expect a small merge.
+
+✻ Churned for 1m 5s · done 2:33 PM
+
+※ recap: We're in the timed Field Operations exercise, and all bug fixes and HTTP tests are committed on main. Next: approve committing the production deploy section I drafted in SUBMISSION.md; the time-up alert comes at 14:58. (disable recaps in /config)
+
+● Background command "Timer: 10-minute warning at 65 minutes" completed (exit
+code 0)
+
+● ⏰ 10-minute warning: it's 14:48 CDT and the hard stop is 14:58. Per the
+  brief, all code, notes and commits stop at 14:58; only pushing can happen
+  after.
+
+  To do before 14:58:
+  1. Commit SUBMISSION.md. The deploy section and the 47-test correction are
+     waiting for your OK.
+  2. Fill in SUBMISSION.md:
+     - End time: I'd put 14:58 CDT, or whenever you stop.
+     - "Working with AI": still a placeholder. Say the word and I'll draft it
+       from this session in about two minutes for you to edit. Good examples to
+       cite: the copy-instead-of-import call for CLAUDE.md, the subagent review
+       that caught the \s+ Bearer regex (which I then tightened test-first), and
+       your choice to skip browser automation to save time.
+  3. Merge your feature worktree into main and commit before 14:58. The brief
+     wants a single branch, and main is at 081910a plus the uncommitted
+     SUBMISSION.md change.
+
+  After the clock you can push, run /export in each Claude session for the AI
+  work log, and answer the reflection questions. My dev server is still running
+  on 5173 and 3001; tell me if you want it stopped.
+
+✻ Crunched for 11s · done 2:48 PM
+
+❯ the session log form the other sesison is here, review it , update the        
+  submission.md and commit it with the required infor                           
+
+● Under ten minutes left, so moving fast. First I'll find the other session's
+  log and check what's on disk and in git.
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● Found the ai-work-log file—the feature's already merged into main via 3 feat
+  commits, with about 5 minutes left on the clock. I'll read the log and run the
+  tests in parallel.
+
+  Ran 2 shell commands (ctrl+o to expand)
+
+● 62 of 62 tests pass on main and typecheck is clean. One quick look at the end
+  of the log for the review results, then I'll write the notes:
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● Writing the notes now, with about 4 minutes left.
+
+● Update(SUBMISSION.md)
+  ⎿  Added 1 line, removed 1 line
+      1  # Submission
+      2  
+      3  Start time: 13:43 CDT, 13 October 2026
+      4 -End time: _to be filled in when the clock stops_                
+      4 +End time: 14:58 CDT, 13 October 2026                            
+      5  
+      6  ## Opportunities, ranked
+      7  
+
+● Update(SUBMISSION.md)
+  ⎿  Added 1 line
+      18  11. **The demo account list shows only the first team for a man
+          ager who leads several.** Logged, not fixed: the demo data has 
+          one team per manager.
+      19  12. **`formatDate` in `src/web/format.ts` is never used.** Logg
+          ed, not fixed: harmless dead code.
+      20  13. **Other request-body errors still return a logged `500`:** 
+          a body over 100 kB (the JSON parser reports `413`) and an unsup
+          ported charset such as `charset=latin1` (`415`). The review aft
+          er the JSON fix found this. Logged, not fixed: it is outside th
+          e agreed scope, and `docs/api.md` would need new status codes.
+      21 +14. **Managers had no quick view of who is falling behind** bef
+         +ore their weekly check-in. By value this ranks just after items
+         + 1 and 2. **Built:** a Team summary (see below).               
+      22  
+      23  ## What you changed
+      24  
+
+● Update(SUBMISSION.md)  ⎿  Added 5 lines
+      22  
+      23  ## What you changed
+      24  
+      25 +- **New feature: Team summary for managers**, built in a separa
+         +te worktree and merged into `main`.                            
+      26 +  - `GET /api/tasks/summary` returns open, overdue and due-soon
+         + counts (due within the next 24 hours), plus the reps with over
+         +due work. It uses the same visibility rules as the task lists. 
+      27 +  - A Team summary tab shows those counts, with a "View overdue
+         +" link per rep that opens the Overdue tab filtered to that rep.
+      28 +  - Managers now land on Team summary. Reps see no change.     
+      29 +  - `docs/api.md` and `docs/domain.md` are updated, and no depe
+         +ndencies were added.                                           
+      30  - **Reps can no longer complete their teammates' tasks** (`src/
+          api/domain/taskService.ts`). For reps, the completion check now
+           compares the task's assignee with the signed-in rep, the same 
+          rule that decides which tasks a rep can list. Acting on someone
+           else's task now returns `404`, as `docs/api.md` describes.
+      31  - **The Overdue view's rep filter works** (`src/api/domain/task
+          Queries/definitions.ts`). The overdue query now accepts `repId`
+          , so the filter narrows the list, and asking for a rep outside 
+          your visibility returns `403`, the same as `GET /api/tasks`.
+      32  - **Five tests in `src/api/domain/taskService.test.ts` pin both
+           rules.** Four of them failed before the fixes. The fifth check
+          s that reps can still complete their own tasks, so the fix cann
+          ot quietly over-restrict them.
+
+● Update(SUBMISSION.md)
+  ⎿  Added 4 lines
+      58  - After the smaller fixes, `npm test` passed 46 of 46 tests in 
+          8 files.
+      59  - The review then found that the new `Bearer` check also accept
+          ed a tab after the scheme. I tightened it test-first: the new t
+          est got `200` before and `401` after. Final run: `npm test` pas
+          sed 47 of 47 tests in 8 files, and `npm run build` (type-check 
+          plus production build) was clean.
+      60  - The rep-list message is covered by a component test (`src/web
+          /App.test.tsx`). I chose to do the browser check for it myself 
+          instead of having the AI drive the browser, to save time.
+      61 +- Team summary has unit, service, HTTP and component tests: the
+         + due-soon edges at exactly now and at 24 hours, the manager's a
+         +nd the rep's counts, the counts after completing a task, and th
+         +e landing tab for each role.                                   
+      62 +  - To land managers on Team summary, one existing App test had
+         + to open Tasks first. I approved that change, and its checks ar
+         +e unchanged.                                                   
+      63 +  - The feature session checked it in the browser: Dana lands o
+         +n Team summary with 6 open, 3 overdue and 1 due soon.          
+      64 +- Final state of `main` (`d91fb8a`): `npm test` passed 62 of 62
+         + tests in 9 files, and `npm run typecheck` was clean.          
+      65  
+      66  ## Working with AI
+      67  
+
+● Update(SUBMISSION.md)
+  ⎿  Added 14 lines, removed 1 line
+      65  
+      66  ## Working with AI
+      67  
+      68 -_To be filled in._                                             
+      68 +- **How I directed it.** I used two Claude Code sessions: one f
+         +or review and bug fixes on `main`, and one for the feature in a
+         + git worktree. Both followed a `CLAUDE.md` with my rules:      
+      69 +  - plan first, and wait for my approval;                      
+      70 +  - for bug fixes, show the failing test before the fix;       
+      71 +  - no new dependencies;                                       
+      72 +  - keep the API as `docs/` describe it;                       
+      73 +  - never weaken tests;                                        
+      74 +  - log unrelated problems instead of fixing them.             
+      75  
+      76 +  After each significant change, a subagent reviewed the diff. 
+      77 +- **Verified carefully.** Before any fix, I had the AI map ever
+         +y rule in `docs/` to the code and tests, and reproduce the two 
+         +visibility bugs against the running API.                       
+      78 +- **Accepted.** The review found that my new `Bearer` check als
+         +o accepted a tab after the scheme. I had it tightened, test-fir
+         +st.                                                            
+      79 +- **Changed.** The feature plan advised against changing what m
+         +anagers see first, as too big for the timebox. I overrode that 
+         +and had managers land on Team summary, in its own commit with t
+         +he docs updated.                                               
+      80 +- **Rejected.** A "Due soon" label on every task row, because i
+         +t would change the task object that `docs/api.md` documents.   
+      81 +- I stopped AI browser automation partway through to save time.
+      82 +                                                               
+      83  ## Future: deploying to production
+      84  
+      85  I did not do this in the exercise, because the project rules ru
+          le out new dependencies and outside services. This is the simpl
+          est route I would take.
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● 2 background shell command tasks didn't finish before the previous session
+ended. Task ids: bsmnjkstn, b53spm6hh.
+
+❯ continue                                                                      
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● I've reviewed the other session's log, finished SUBMISSION.md, and committed
+  it as a185425 at 14:53:29, before the 14:58 stop. The working tree is clean
+  and all 62 tests pass on main.
+
+  What I added to SUBMISSION.md, taken from the log and the merged commits:
+  - End time: 14:58 CDT.
+  - What you changed: the Team summary feature. It adds GET /api/tasks/summary
+    (open, overdue and due-in-24-hours counts, plus the reps with overdue work)
+    and a Team summary tab with a "View overdue" link per rep. Managers now land
+    on that tab, and reps see no change. Both docs files were updated and no
+    dependencies were added.
+  - Verification:
+    - The feature's tests, including the one existing App test you approved
+      changing to open Tasks first; its checks are unchanged.
+    - The feature session's browser check: Dana sees 6 open, 3 overdue and 1 due
+      soon.
+    - The final result: 62 of 62 tests and a clean typecheck.
+  - Working with AI:
+    - How the two sessions were directed through CLAUDE.md.
+    - Accepted: the review catching the \s+ Bearer regex.
+    - Changed: you overrode the advice not to change the landing view.
+    - Rejected: a "Due soon" label on every task, because it would change the
+      documented task object.
+  - Future: deploying to production: the Vercel, Railway and Supabase outline.
+
+  main is 12 commits ahead of origin/main and nothing is pushed yet. Pushing is
+  allowed after the clock, so tell me when and I'll push. The log file is
+  outside the repository, so it won't be committed by accident.
+
+  After the clock:
+  1. Push main.
+  2. Run /export in this session too. The other session's log is already at
+     TerrosCodingChallenge-ai-work-log-2026-10-13.txt.
+  3. Reply to the invitation email with the repository URL, the branch (main),
+     the final commit SHA (a185425), both logs, exercise version v1, and your
+     reflection answers.
+
+  Per the brief, don't change the repository while you answer the reflection.
+
+✻ Cogitated for 20s · done 2:54 PM
+
+❯ check if the session log frm other session landed on this repo main, adn then 
+  we shall also export this sesson log to main as well. and close the           
+  worktree, and push main                                                       
+
+● Before acting, I'll check where the other session's log is, whether the
+  worktree still exists, and where origin points.
+
+  Pushed to main, ran 1 shell command (ctrl+o to expand)
+
+● main is pushed: origin/main is now at a185425, all 12 commits, and nothing is
+  left unpushed. It's 14:55.
+
+  - The other session's log is not on main. It was never committed. It's in the
+    folder above the repository: C:\Users\akram\TerrosCoding\TerrosCodingChallen
+    ge-ai-work-log-2026-10-13.txt.
+  - The worktree is already closed. Only the main checkout is left, and the
+    feature branch is gone because it was merged into main.
+
+  I haven't put either session log on main, for two reasons:
+  1. The brief says not to. It says to send the AI work log separately, as an
+     attachment or share link, rather than committing it to the repository.
+  2. I can't export this session. /export is a command only you can run. Type
+     /export in this session to save it, the same way you did for the other one.
+
+  My recommendation: leave both logs out of the repository and attach both files
+  to your reply email, along with the repository URL, branch main, commit
+  a185425, exercise version v1, and your reflection answers. If you still want
+  them committed, say so; it would mean a new commit and push, and should land
+  before 14:58.
+
+✻ Crunched for 30s · done 2:55 PM
+
+❯ /export                                                                       
+  ⎿  Conversation exported to: C:\Users\akram\TerrosCoding\TerrosCodingChallenge
+     \2026-10-13-145549-before-we-start-on-this-project-start-a-timer-no.txt
+
+❯ session exported, let's psuh to main                                          
+
+  Ran 1 shell command (ctrl+o to expand)
+  ⎿  Interrupted · What should Claude do instead?
+
+❯ wait, this session log landed on repo that is fine, bring the other sesion    
+  log to this repo as well. and add both repo to .gitignore file, and push      
+  everyhting to main, expcet the logs                                           
+
+● Bash(cp ../TerrosCodingChallenge-ai-work-log-2026-10-13.txt . && printf '\n#
+      AI work logs: sent with the submission email, not
+      committed\nTerrosCodingChallenge-ai-wo…)
+  ⎿   M .gitignore
+     .gitignore:12:TerrosCodingChallenge-ai-work-log-2026-10-13.txt
+     TerrosCo
+     dingChallenge-ai-work-log-2026-10-13.txt
+     … +10 lines (ctrl+o to expand)
+  ⎿  Updated .gitignore (+13 -9)
+       1 -node_modules/                                                  
+       2 -dist/                                                          
+       3 -coverage/                                                      
+       4 -pnpm-lock.yaml                                                 
+       5 -*.log                                                          
+       6 -.DS_Store                                                      
+       7 -.env                                                           
+       8 -.env.*                                                         
+       9 -!.env.example                                                  
+       1 +node_modules/                                                  
+       2 +dist/                                                          
+       3 +coverage/                                                      
+       4 +pnpm-lock.yaml                                                 
+       5 +*.log                                                          
+       6 +.DS_Store                                                      
+       7 +.env                                                           
+       8 +.env.*                                                         
+       9 +!.env.example                                                  
+      10 +                                                               
+      11 +# AI work logs: sent with the submission email, not committed  
+      12 +TerrosCodingChallenge-ai-work-log-2026-10-13.txt               
+      13 +2026-10-13-145549-before-we-start-on-this-project-start-a-timer
+         +-no.txt                                                        
+
+● Both logs are now in the repo folder and ignored, and main is pushed with
+  everything else. It's 14:57, a minute before the stop.
+
+  - The other session's log is copied into the repo folder. The original is
+    still in the folder above.
+  - .gitignore lists both log files by name. Git confirms both are ignored, so
+    neither was committed or pushed.
+  - Pushed: origin/main is at a7da651 (chore(repo): ignore the AI work log 
+    exports), and nothing else is waiting to be pushed.
+
+  The final commit is now a7da651, not a185425, so give a7da651 as the final SHA
+  in your email. Attach both log files to that email.
+
+✻ Baked for 16s · done 2:57 PM
+
+❯ stop the dev server and clean up                                              
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● Both are this project's dev servers (Vite and the API). I'll look for their
+  parent processes too, so nothing restarts them:
+
+  Ran 2 shell commands (ctrl+o to expand)
+
+● Dev server stopped. Now removing the dist/ build output I generated during
+  verification (it's gitignored and gets rebuilt by npm run build):
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● The dev server is stopped and I've cleaned up:
+
+  - Dev server: I stopped all four processes from npm run dev (the launcher, the
+    API watcher, the API and Vite). Ports 3001 and 5173 are free.
+  - Build output: I deleted dist/, which was left over from my build checks. It
+    isn't tracked and npm run build recreates it.
+  - Repository: the working tree is clean and matches origin/main at a7da651.
+    The only untracked files are the two session logs, which are ignored as you
+    asked.
+
+  I left the logs, node_modules, and the original copy of the other session's
+  log in the folder above. The timers and the browser tab were already gone.
+
+✻ Brewed for 32s · done 2:58 PM

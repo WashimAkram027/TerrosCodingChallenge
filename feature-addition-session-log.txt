@@ -1,0 +1,1902 @@
+ ▐▛███▛█   Claude Code v2.1.296
+▝▜██████▀  Opus 5.5 · Claude Max
+ ▝▝   ▝▝   ~\TerrosCoding\TerrosCodingChallenge\.claude\worktrees\team-summ…
+
+⚠ Your login expires in 3 days · run /login to renew
+
+❯ /effort                                                                       
+  ⎿  Set effort level to max (this session only): Maximum capability with
+     deepest reasoning. May use excessive tokens resulting in long response
+     times or overthinking. Use sparingly for the hardest tasks.
+
+❯ let's brainstrom for ideas to imporvise on the ewxisitng project, here is     
+  what i have in mind, :                                                        
+   Manager Dashboard Upgrade                                                    
+                                                                                
+  Currently, the application allows managers to view tasks, filter by sales     
+  representatives, and see overdue work. However, managers still have to go     
+  through individual tasks to understand how their team is performing.          
+                                                                                
+  I'm planning to introduce a simple, useful dashboard that gives managers a    
+  quick overview of their team's follow-up activities.                          
+                                                                                
+  Here is what I have in mind:                                                  
+                                                                                
+  Open Tasks Summary: Display the total number of open tasks across the         
+  manager's team.                                                               
+                                                                                
+  Overdue Tasks Summary: Highlight how many tasks are overdue and need          
+  attention.                                                                    
+                                                                                
+  Upcoming Tasks: Show how many open tasks are due within the next 24 hours.    
+                                                                                
+  Representative Overview: Provide a simple breakdown of which sales            
+  representatives have overdue tasks, helping managers identify who may need    
+  additional attention or support.                                              
+                                                                                
+  The main goal is to help managers quickly answer questions like:              
+                                                                                
+  How many customer follow-ups are still pending?                               
+                                                                                
+  How much work is overdue?                                                     
+                                                                                
+  What needs attention soon?                                                    
+                                                                                
+  Which representatives might need help catching up?                            
+                                                                                
+  I want this dashboard to feel like a natural extension of the existing        
+  application rather than a completely redesigned product. It should be clean,  
+  professional, easy to understand, and consistent with the current interface   
+
+● I'll start by reading the project so the ideas fit what's already there.
+
+  Searched for 1 pattern, ran 1 shell command (ctrl+o to expand)
+
+● The work-in-progress from the snapshot is already committed. Now I'll read the
+  brief, docs and source.
+
+  Read 5 files, ran 1 shell command (ctrl+o to expand)
+
+● The brief is a 75-minute timebox that started at 13:43 CDT, so I'll check the
+  clock before going further.
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● It's 14:12, so 29 minutes are used and 46 remain. The clock stops at 14:58,
+  and the brief's 10-minute write-up window starts around 14:48. I'll read the
+  source quickly so the ideas fit the time left.
+
+  Read 24 files (ctrl+o to expand)
+
+● styles.css has two unused classes, .task-summary and .badge-warning. I'll
+  check where they're used and finish reading the rest of the code.
+
+  Searched for 1 pattern, read 7 files (ctrl+o to expand)
+
+● It's 14:13. Your clock stops at 14:58 and the last 10 minutes go to
+  SUBMISSION.md, which leaves about 30 minutes to build. That's enough for a
+  tight version of the dashboard, so I've scoped one below with a cut-off point.
+
+  What the code tells us
+
+  - Where "due in the next 24 hours" belongs. docs/domain.md says the API
+    decides whether a task is overdue and the web app only shows that flag. "Due
+    in the next 24 hours" is the same kind of rule, so the API should work it
+    out too, not the browser.
+  - No new visibility rules needed. The existing task query already limits
+    results to what the user may see. If the dashboard is built on it, we don't
+    add a third copy of the visibility rules (CLAUDE.md already flags the two
+    that exist).
+  - Ready-made styles. styles.css has two classes nothing uses yet:
+    .task-summary (a row layout) and .badge-warning (amber). They look like they
+    were left for this. I'd reuse them with the existing colours rather than
+    add a new look.
+  - Demo numbers for Dana, right after the API starts: 6 open, 3 overdue, 1 due
+    within 24 hours. Marcus, Alicia and Jordan each have one overdue task.
+
+  Recommendation: a new summary endpoint plus an "Overview" tab
+
+  I'd add a new read-only endpoint, GET /api/tasks/summary, rather than either
+  alternative:
+  - Counting in the browser from the existing task list would be faster, but it
+    puts a time-based rule in the browser, which docs/domain.md rules out.
+  - Adding a "due soon" flag to every task changes the shape of existing API
+    responses. The brief says reviewers run checks of their own, and those may
+    compare responses to docs/api.md.
+
+  A new endpoint leaves every existing response exactly as it is.
+
+  North Metro follow-ups                 [ Tasks ] [ Overdue ] [ Overview ]
+
+  ┌──────────────┐  ┌──────────────┐  ┌──────────────────────────┐
+  │ Open tasks   │  │ Overdue      │  │ Due in the next 24 hours │
+  │ 6            │  │ 3  (red)     │  │ 1  (amber)               │
+  └──────────────┘  └──────────────┘  └──────────────────────────┘
+
+  Reps with overdue tasks            (same table style as the task list)
+    REP             OVERDUE   OPEN
+    Alicia Chen     1         2
+    Jordan Pike     1         2
+    Marcus Bell     1         2
+
+  Plan: two parts, each one usable on its own
+
+  Part 1: the API (about 12 minutes)
+  - src/api/domain/tasks.ts: add a "due soon" check next to the existing overdue
+    check.
+  - src/api/domain/taskService.ts: add summarizeTasks(context). It runs the
+    existing open-task query and counts open, overdue and due-soon tasks against
+    a single "now". It also groups overdue tasks by rep, most overdue first,
+    then by name.
+  - src/api/http/taskRoutes.ts: add GET /summary, which returns { summary: { 
+    open, overdue, dueSoon, overdueByRep: [{ id, name, overdue, open }] } }.
+  - src/shared/types.ts: add the response types.
+  - docs/api.md and docs/domain.md: describe the endpoint, the due-soon rule and
+    the new tab, in the same commit.
+  - Tests come first, in taskService.test.ts with the fixed test clock:
+    - Dana's counts are right.
+    - Marcus only gets counts for his own tasks.
+    - Completed tasks are not counted.
+    - The time limits, tested by moving the clock: a task due exactly now counts
+      as due soon, not overdue. A task due exactly 24 hours out counts. One due
+      just over 24 hours out does not.
+
+  Part 2: the web app (about 15 minutes)
+  - src/web/api/client.ts: add taskSummary().
+  - New src/web/components/TaskSummary.tsx: the cards and the rep table. It has
+    the same loading, empty and error-with-retry states that docs/domain.md
+    requires for every view.
+  - src/web/App.tsx: show the Overview tab to managers only, and hide the
+    filters on it.
+  - src/web/styles.css: card styles built on .task-summary and the existing
+    colours.
+  - New TaskSummary.test.tsx, following TaskList.test.tsx: it shows the loading
+    message then the numbers, and an error then a working retry.
+
+  How I'll check it
+  - Run npm test, npm run typecheck and npm run build.
+  - In the browser as Dana: the Overview numbers match the Tasks and Overdue
+    tabs. After completing a task and returning to Overview, the counts have
+    changed.
+  - Signed in as Marcus: there is no Overview tab.
+  - Then one review pass by a subagent.
+
+  Cut-off: if Part 2 isn't working in the browser by about 14:40, I'll stop
+  there. I'll commit Part 1 on its own and list the screen as unfinished in
+  SUBMISSION.md.
+
+  Assumptions (tell me if any are wrong)
+
+  - "Due in the next 24 hours" means a task that is open, not yet overdue, and
+    due at most 24 hours from now. A task due exactly 24 hours from now counts.
+  - The rep table lists only reps with at least one overdue task, as you
+    described it.
+  - The endpoint also works for reps, showing only their own tasks like the
+    other task endpoints. Only managers see the tab.
+  - The new tab is called "Overview", and Tasks stays the tab managers land on.
+    Changing what managers see first is too big a change for this timebox.
+
+  Ideas for later (for SUBMISSION.md's "not done" list)
+
+  - Click a rep in the table to open the Overdue tab filtered to that rep.
+    That's about 5 lines and builds on your earlier fix to that filter. I'll add
+    it if there's time.
+  - Show how late each rep's oldest overdue task is. In the demo data it would
+    put Jordan's 3-day-old task above Alicia's 6-hour-old one, where the counts
+    alone are tied.
+  - Add a "Due soon" label in the Tasks table using .badge-warning. It changes
+    what every task returns, so it needs your decision.
+  - Make Overview the managers' default tab. The README says managers open the
+    app to see who is falling behind.
+
+  One trade-off to note in SUBMISSION.md: this takes the slot you planned for
+  HTTP-level tests (item 3 on your list). I think the dashboard is the better
+  use of the time, because the README names spotting who is falling behind as
+  the main reason managers open the app.
+
+  Shall I go ahead with this plan? Or would you rather change the scope or
+  assumptions, or spend the time on the HTTP-level tests instead?
+
+✻ Baked for 5m 51s · done 2:17 PM
+
+❯ /fast                                                                         
+  ⎿  Fast mode OFF
+
+❯ /fast                                                                         
+  ⎿  ↯ Fast mode ON · $8/$40 per Mtok
+
+❯ let;s re review the plan with this in mind, and open a worktree to work on    
+  it.                                                                           
+  First, review the existing project structure, components, API, and data flow. 
+  Think critically about how to introduce this feature using the architecture   
+  already in place.                                                             
+                                                                                
+  I want you to determine the best implementation approach rather than having   
+  me prescribe exactly how the code should be written.                          
+                                                                                
+  A few things are important to me:                                             
+                                                                                
+  Keep the solution simple and maintainable.                                    
+                                                                                
+  Avoid unnecessary dependencies or architectural complexity.                   
+                                                                                
+  Preserve existing functionality and the security fixes I've already made.     
+                                                                                
+  Make the dashboard available to managers without introducing unnecessary      
+  changes to the representative experience.                                     
+                                                                                
+  Ensure the information stays accurate when tasks are updated or completed.    
+                                                                                
+  Handle loading, empty, and error states appropriately.                        
+                                                                                
+  Add meaningful tests and verify that existing functionality continues to      
+  work.                                                                         
+                                                                                
+  This is part of a time-limited coding challenge, so I want to prioritize      
+  actual user value over complicated features or visual polish.                 
+                                                                                
+  Please analyze the existing code, determine a sensible implementation, and    
+  make the necessary changes. Use your engineering judgment to make tradeoffs,  
+  and explain your decisions.                                                   
+                                                                                
+  Once you're finished, summarize what you implemented, why you chose that      
+  approach, what you tested, and any limitations or improvements you            
+  intentionally left for later.                                                 
+                                                                                
+  The overall goal is to make the application more useful for managers without  
+  overengineering it.                                                           
+
+● I'll check the clock and read the few files I haven't opened yet: the tests
+  I'd extend, the clock helper, errors, and the test config.
+
+  Read 5 files, ran 1 shell command (ctrl+o to expand)
+
+● I've got about 23 minutes left to build before write-up starts. I found two
+  mismatches with SUBMISSION.md—authenticate.ts's case-insensitive "Bearer"
+  handling (item 9) and errors.ts's 400 response for malformed JSON (item 6)—so
+  I'll check if the working tree has changed since the last commit.
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● The tree is clean, but there are five new commits since I last looked. One of
+  them (ab81c2e) changed the web app, so I'll re-read App.tsx and see which
+  files moved.
+
+  Read 1 file, ran 1 shell command (ctrl+o to expand)
+
+● There is now an App.test.tsx. Its fetch mock could cover the "managers only"
+  and "stays current after completing a task" checks cheaply, so I'll read it.
+
+  Read 1 file (ctrl+o to expand)
+
+● The working tree is clean at 081910a, so a worktree from HEAD includes all
+  your fixes. I have everything I need, so I'll write the plan now.
+
+● Updated plan
+  ⎿  /plan to preview
+
+● The EnterWorktree tool branches from origin/main by default, not from your
+  local HEAD. If your fixes haven't been pushed, a worktree created that way
+  would leave them out. I'll check.
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● Confirmed origin/main is still the initial commit while local main is 8
+  commits ahead, so I'll create the worktree from local HEAD explicitly to keep
+  both security fixes. Now checking tsconfig.json to make sure a worktree inside
+  the repo doesn't get swept into the main checkout's typecheck.
+
+  Read 1 file (ctrl+o to expand)
+
+● Updated plan
+  ⎿  /plan to preview
+● User approved Claude's plan
+  ⎿  Plan saved to: ~\.claude\plans\let-s-re-review-the-ancient-patterson.md · 
+     /plan to edit
+     Team summary for managers
+
+     Context
+
+     The README says managers open the app before their weekly check-in to see
+     who is falling behind. Today they have to scan the task lists to work that
+     out. This adds a team summary for managers with four things: open tasks,
+     overdue tasks, tasks due in the next 24 hours, and reps with overdue tasks.
+
+     Constraints:
+     - No new dependencies.
+     - Existing API responses and your security fixes stay as they are.
+     - The rep experience does not change.
+     - The numbers stay accurate after tasks are completed.
+     - Loading, empty and error states are handled.
+     - New behaviour comes with meaningful tests.
+
+     Timebox: it is 14:26 now. Building stops at about 14:48, then
+     SUBMISSION.md.
+
+     Approach
+
+     1. The API does the counting, through a new read-only endpoint, GET 
+        /api/tasks/summary.
+        - docs/domain.md says the API works out time-based status (isOverdue)
+          and the web app only shows it. "Due soon" is the same kind of rule.
+        - One server clock keeps "overdue" and "due soon" consistent: a task can
+          never be counted as both.
+        - The numbers match what the lists show.
+        - Existing endpoints and response shapes are untouched.
+     2. It reuses the existing scoped query, this.queries.run("all", context, { 
+        status: "open" }) from src/api/domain/taskQueries/engine.ts.
+        - The summary inherits the visibility rules in scope.ts, so there is no
+          third copy of them.
+        - A rep calling the endpoint gets counts for their own tasks only, like
+          the other task endpoints.
+     3. In the web app it is a third tab, "Team summary", shown only to 
+        managers.
+        - The Tasks and Overdue views stay the same, and so do TaskList and
+          useAsync.
+        - The tab loads fresh data each time it is opened, so it reflects tasks
+          completed in the other tabs without new refresh code.
+        - Completing a task doesn't make the page jump.
+        - Tasks stays the tab managers land on.
+
+     Steps
+
+     0. Worktree
+
+     - Create it from local HEAD (081910a) with git worktree add -b 
+       feat/team-summary .claude/worktrees/team-summary HEAD, then switch into
+       it with EnterWorktree path=….
+       - EnterWorktree on its own branches from origin/main. That is still the
+         initial commit, 8 commits behind, so the worktree would lose your
+         security fixes.
+     - Add .claude/worktrees/ to .git/info/exclude, which only affects your
+       machine, so the main checkout doesn't list it as untracked.
+       - tsconfig.json and Vitest only look inside src, so the main checkout's
+         typecheck and tests ignore the worktree.
+     - Run npm ci inside it, since node_modules is not shared between worktrees.
+     - Run npm test to record the baseline.
+
+     1. API, with docs, as commit 1
+
+     Tests come first.
+     - src/api/domain/tasks.ts: add isDueSoon(task, now) next to isOverdue. A
+       task is due soon when it is open and due between now and 24 hours from
+       now, both ends included. A task due exactly now is due soon and, by the
+       existing rule, not overdue.
+     - src/shared/types.ts: add three types:
+       - RepOverdueSummary { id, name, overdue, open }
+       - TaskSummary { open, overdue, dueSoon, overdueByRep }
+       - TaskSummaryResponse { summary }
+     - src/api/domain/taskService.ts: add summarizeTasks(context).
+       - It takes now once and fetches the user's open tasks through the scoped
+         query.
+       - It counts them with isOverdue and isDueSoon.
+       - It looks up rep names with directory.findUsersByIds, falling back to
+         "Unknown rep" the way toViews does.
+       - The rep list is sorted by most overdue first, then by name.
+     - src/api/http/taskRoutes.ts: add router.get("/summary"), shaped like the
+       /overdue handler.
+     - docs/api.md: add a section for the new endpoint.
+     - docs/domain.md:
+       - Add a "Due soon" rule after "Overdue".
+       - Add "Team summary (managers)" under "Web app views".
+     - Tests in tasks.test.ts: isDueSoon
+       - A task due exactly now is due soon.
+       - Exactly 24 hours ahead is due soon.
+       - 24 hours plus 1 ms ahead is not.
+       - A task already past due is not.
+       - A completed task is not.
+     - Tests in taskService.test.ts:
+       - Dana sees 6 open, 3 overdue and 1 due soon. Alicia, Jordan and Marcus
+         each show 1 overdue of 2 open.
+       - Marcus sees only his own tasks.
+       - After Dana completes task-1004, she sees 5 open and 2 overdue, and
+         Alicia drops off the list. This is the accuracy test.
+
+     2. Web app, as commit 2
+
+     - src/web/api/client.ts: add taskSummary().
+     - New src/web/components/TeamSummary.tsx, using the same useAsync pattern
+       as TaskList.
+       - States:
+         - Loading: "Loading team summary…".
+         - Error: a plain message with "Try again". It does not show the raw
+           error text.
+         - Empty: "No open tasks. Your team is all caught up."
+       - Three number cards (<dl>).
+       - A "Reps with overdue tasks" table that reuses .task-table. Each row has
+         a "View overdue" button that opens the Overdue tab filtered to that
+         rep. If no rep is behind, it says "No reps have overdue tasks."
+     - src/web/App.tsx:
+       - Add type WorkspaceView = TaskListView | "summary".
+       - Add the tab only when isManager.
+       - Hide the filters on that tab.
+       - Render TeamSummary in place of TaskList there.
+       - The "View overdue" button sets the rep filter and switches to the
+         Overdue tab.
+     - src/web/styles.css: minimal card styles, built on the unused
+       .task-summary class and the existing colours.
+     - Tests:
+       - New TeamSummary.test.tsx: the numbers and rows render, an error offers
+         a working retry, and the empty message shows.
+       - App.test.tsx: a rep sees no "Team summary" tab.
+
+     What to drop first if behind: the "View overdue" button, then the extra
+     styling. Cut-off at 14:40: if the web part isn't passing by then, I stop,
+     commit the API part only, and list the screen as unfinished in
+     SUBMISSION.md.
+
+     Not touched
+
+     - scope.ts, canAccess, authenticate.ts, errors.ts
+     - TaskList, useAsync
+     - Existing endpoints and response shapes
+     - The rep UI
+
+     Verification
+
+     - In the worktree, run npm test (compared with the baseline), npm run 
+       typecheck and npm run build.
+     - In the browser:
+       - Your dev servers from the main checkout are on ports 5173 and 3001, so
+         I'll start the worktree's with PORT=3002 API_URL=http://localhost:3002 
+         npm run dev. Vite will move to port 5174.
+       - Signed in as Dana, Team summary shows 6, 3 and 1, plus Alicia, Jordan
+         and Marcus. The overdue count matches the Overdue tab.
+       - After completing Alicia's overdue task in Tasks, Team summary shows 5
+         and 2, and Alicia is gone.
+       - "View overdue" on Jordan opens the Overdue tab filtered to Jordan.
+       - Signed in as Marcus, only the Tasks and Overdue tabs show.
+     - One review pass by a subagent on the diff against this plan, run during
+       the browser check. I'll bring the findings to you.
+     - Commits happen only when you ask. At the end, main is fast-forwarded to
+       the worktree branch, because the brief wants the submission on a single
+       branch.
+
+     Limitations to record in SUBMISSION.md
+
+     - The numbers are as of when the tab was opened. They don't refresh on
+       their own while it stays open.
+     - Ideas for later:
+       - Make Team summary the managers' default tab.
+       - Show the oldest overdue task per rep.
+       - Add a "Due soon" label in the task table. That changes the task object,
+         so it needs a decision.
+
+● Approved. Step 0: create the worktree from local HEAD.
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● Entering worktree(C:\Users\akram\TerrosCoding\TerrosCodingChallenge\.claude\wo
+                   rktrees\team-summary)
+  ⎿  Switched to worktree on branch feat/team-summary
+     C:\Users\akram\TerrosCoding\TerrosCodingChallenge\.claude\worktrees\te
+     am-summary
+
+● I'm in the worktree. I'll start npm ci in the background and write the API
+  tests first while it installs.
+
+  Read 7 files, ran 1 shell command (ctrl+o to expand)
+
+● Background command "Install dependencies in the worktree" completed (exit code
+0)
+
+● Dependencies are installed. Now the API tests, written before the code.
+
+● Update(src\api\domain\tasks.test.ts)
+  ⎿  Added 1 line, removed 1 line
+      1  import { describe, expect, it } from "vitest";
+      2  
+      3  import type { Task } from "../repository/types";
+      4 -import { compareByDueDate, isOverdue } from "./tasks";          
+      4 +import { compareByDueDate, isDueSoon, isOverdue } from "./tasks"
+        +;                                                               
+      5  
+      6  const now = new Date("2026-03-10T15:00:00.000Z");
+      7  
+
+● Update(src\api\domain\tasks.test.ts)
+  ⎿  Added 28 lines
+      42    });
+      43  });
+      44  
+      45 +describe("isDueSoon", () => {                                  
+      46 +  const hoursFromNow = (hours: number) => new Date(now.getTime(
+         +) + hours * 60 * 60 * 1000).toISOString();                     
+      47 +                                                               
+      48 +  it("is true for an open task due at exactly the current time,
+         + which is not overdue yet", () => {                            
+      49 +    const task = makeTask({ dueAt: now.toISOString() });       
+      50 +                                                               
+      51 +    expect(isDueSoon(task, now)).toBe(true);                   
+      52 +    expect(isOverdue(task, now)).toBe(false);                  
+      53 +  });                                                          
+      54 +                                                               
+      55 +  it("includes a task due exactly 24 hours from now and exclude
+         +s one due later", () => {                                      
+      56 +    expect(isDueSoon(makeTask({ dueAt: hoursFromNow(24) }), now
+         +)).toBe(true);                                                 
+      57 +    expect(isDueSoon(makeTask({ dueAt: new Date(now.getTime() +
+         + 24 * 60 * 60 * 1000 + 1).toISOString() }), now)).toBe(        
+      58 +      false,                                                   
+      59 +    );                                                         
+      60 +  });                                                          
+      61 +                                                               
+      62 +  it("is false for an overdue task", () => {                   
+      63 +    expect(isDueSoon(makeTask({ dueAt: hoursFromNow(-1) }), now
+         +)).toBe(false);                                                
+      64 +  });                                                          
+      65 +                                                               
+      66 +  it("is false for a completed task due within the next 24 hour
+         +s", () => {                                                    
+      67 +    expect(isDueSoon(makeTask({ dueAt: hoursFromNow(2), status:
+         + "completed", completedAt: now.toISOString() }), now)).toBe(   
+      68 +      false,                                                   
+      69 +    );                                                         
+      70 +  });                                                          
+      71 +});                                                            
+      72 +                                                               
+      73  describe("compareByDueDate", () => {
+      74    it("orders tasks by due time, earliest first", () => {
+      75      const later = makeTask({ id: "task-2", dueAt: "2026-03-12T0
+          9:00:00.000Z" });
+
+● Update(src\api\domain\taskService.test.ts)
+  ⎿  Added 37 lines
+       94      const aliciasTasks = await service.listTasks(await context
+           For("u-alicia"));
+       95      expect(aliciasTasks.find((task) => task.id === "task-1004"
+           )?.status).toBe("open");
+       96    });
+       97 +                                                              
+       98 +  it("summarizes a manager's open, overdue and due-soon work, 
+          +with reps who have overdue tasks", async () => {              
+       99 +    const summary = await service.summarizeTasks(await context
+          +For("u-dana"));                                               
+      100 +                                                              
+      101 +    expect(summary).toEqual({                                 
+      102 +      open: 6,                                                
+      103 +      overdue: 3,                                             
+      104 +      dueSoon: 1,                                             
+      105 +      overdueByRep: [                                         
+      106 +        { id: "u-alicia", name: "Alicia Chen", overdue: 1, ope
+          +n: 2 },                                                       
+      107 +        { id: "u-jordan", name: "Jordan Pike", overdue: 1, ope
+          +n: 2 },                                                       
+      108 +        { id: "u-marcus", name: "Marcus Bell", overdue: 1, ope
+          +n: 2 },                                                       
+      109 +      ],                                                      
+      110 +    });                                                       
+      111 +  });                                                         
+      112 +                                                              
+      113 +  it("summarizes only a rep's own tasks", async () => {       
+      114 +    const summary = await service.summarizeTasks(await context
+          +For("u-marcus"));                                             
+      115 +                                                              
+      116 +    expect(summary).toEqual({                                 
+      117 +      open: 2,                                                
+      118 +      overdue: 1,                                             
+      119 +      dueSoon: 1,                                             
+      120 +      overdueByRep: [{ id: "u-marcus", name: "Marcus Bell", ov
+          +erdue: 1, open: 2 }],                                         
+      121 +    });                                                       
+      122 +  });                                                         
+      123 +                                                              
+      124 +  it("reflects a completed task in the next summary", async ()
+          + => {                                                         
+      125 +    const dana = await contextFor("u-dana");                  
+      126 +                                                              
+      127 +    await service.completeTask(dana, "task-1004");            
+      128 +    const summary = await service.summarizeTasks(dana);       
+      129 +                                                              
+      130 +    expect(summary.open).toBe(5);                             
+      131 +    expect(summary.overdue).toBe(2);                          
+      132 +    expect(summary.overdueByRep.map((rep) => rep.name)).toEqua
+          +l(["Jordan Pike", "Marcus Bell"]);                            
+      133 +  });                                                         
+      134  });
+
+● I'll run the new tests to watch them fail first.
+
+  Ran 1 shell command (ctrl+o to expand)
+  ⎿  Interrupted · What should Claude do instead?
+
+❯ wait, check where the worktree is at, is behind the main, if yes rebase to    
+  main, and then start with the plan                                            
+
+● I'll check where the worktree branch stands against main before touching
+  anything.
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● The worktree branch matches main exactly, so no rebase is needed—my only local
+  changes are the two test files I edited. Now running the new tests to confirm
+  they fail before implementing the code.
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● All 7 new tests fail for the expected reason (the functions don't exist yet),
+  and the 15 existing tests in those files still pass. Now the API code.
+
+● Update(src\api\domain\tasks.ts)
+  ⎿  Added 8 lines
+       4    return task.status === "open" && new Date(task.dueAt).getTime
+          () < now.getTime();
+       5  }
+       6  
+       7 +const DUE_SOON_WINDOW_MS = 24 * 60 * 60 * 1000;                
+       8 +                                                               
+       9 +/** Open, not yet overdue, and due within the next 24 hours (in
+         +clusive). Never true when `isOverdue` is. */                   
+      10 +export function isDueSoon(task: Task, now: Date): boolean {    
+      11 +  const dueAt = new Date(task.dueAt).getTime();                
+      12 +  return task.status === "open" && dueAt >= now.getTime() && du
+         +eAt <= now.getTime() + DUE_SOON_WINDOW_MS;                     
+      13 +}                                                              
+      14 +                                                               
+      15  export function compareByDueDate(a: Task, b: Task): number {
+      16    return new Date(a.dueAt).getTime() - new Date(b.dueAt).getTim
+          e() || a.id.localeCompare(b.id);
+      17  }
+
+● Update(src\shared\types.ts)
+  ⎿  Added 18 lines
+      61    task: TaskView;
+      62  }
+      63  
+      64 +export interface RepOverdueSummary {                           
+      65 +  id: string;                                                  
+      66 +  name: string;                                                
+      67 +  overdue: number;                                             
+      68 +  open: number;                                                
+      69 +}                                                              
+      70 +                                                               
+      71 +export interface TaskSummary {                                 
+      72 +  open: number;                                                
+      73 +  overdue: number;                                             
+      74 +  dueSoon: number;                                             
+      75 +  overdueByRep: RepOverdueSummary[];                           
+      76 +}                                                              
+      77 +                                                               
+      78 +export interface TaskSummaryResponse {                         
+      79 +  summary: TaskSummary;                                        
+      80 +}                                                              
+      81 +                                                               
+      82  export interface ApiErrorBody {
+      83    error: {
+      84      code: string;
+
+● Update(src\api\domain\taskService.ts)
+  ⎿  Added 1 line, removed 1 line
+      1 -import type { TaskView } from "../../shared/types";             
+      1 +import type { TaskSummary, TaskView } from "../../shared/types";
+      2  import type { RequestContext } from "../auth/requestContext";
+      3  import type { DirectoryRepository, Task, TaskRepository } from "
+         ../repository/types";
+      4  import type { Clock } from "./clock";
+
+● Update(src\api\domain\taskService.ts)
+  ⎿  Added 1 line, removed 1 line
+       4  import type { Clock } from "./clock";
+       5  import { ConflictError, NotFoundError } from "./errors";
+       6  import type { TaskQueryEngine, TaskQueryFilters } from "./taskQ
+          ueries";
+       7 -import { isOverdue } from "./tasks";                           
+       7 +import { isDueSoon, isOverdue } from "./tasks";                
+       8  
+       9  export type TaskFilters = TaskQueryFilters;
+      10  
+
+● Update(src\api\domain\taskService.ts)
+  ⎿  Added 23 lines
+      24      return this.toViews(await this.queries.run("overdue", conte
+          xt, filters));
+      25    }
+      26  
+      27 +  /** Counts the user's open work, using the same scoped query 
+         +as the task lists so the numbers always match them. */         
+      28 +  async summarizeTasks(context: RequestContext): Promise<TaskSu
+         +mmary> {                                                       
+      29 +    const now = this.clock.now();                              
+      30 +    const open = await this.queries.run("all", context, { statu
+         +s: "open" });                                                  
+      31 +    const overdue = open.filter((task) => isOverdue(task, now))
+         +;                                                              
+      32 +    const repIds = [...new Set(overdue.map((task) => task.assig
+         +neeId))];                                                      
+      33 +    const repNames = new Map((await this.directory.findUsersByI
+         +ds(repIds)).map((user) => [user.id, user.name]));              
+      34 +                                                               
+      35 +    return {                                                   
+      36 +      open: open.length,                                       
+      37 +      overdue: overdue.length,                                 
+      38 +      dueSoon: open.filter((task) => isDueSoon(task, now)).leng
+         +th,                                                            
+      39 +      overdueByRep: repIds                                     
+      40 +        .map((id) => ({                                        
+      41 +          id,                                                  
+      42 +          name: repNames.get(id) ?? "Unknown rep",             
+      43 +          overdue: overdue.filter((task) => task.assigneeId ===
+         + id).length,                                                   
+      44 +          open: open.filter((task) => task.assigneeId === id).l
+         +ength,                                                         
+      45 +        }))                                                    
+      46 +        .sort((a, b) => b.overdue - a.overdue || a.name.localeC
+         +ompare(b.name)),                                               
+      47 +    };                                                         
+      48 +  }                                                            
+      49 +                                                               
+      50    async completeTask(context: RequestContext, taskId: string): 
+          Promise<TaskView> {
+      51      const task = await this.tasks.findTaskById(taskId);
+      52      if (!task || !this.canAccess(context, task)) {
+
+● Update(src\api\http\taskRoutes.ts)
+  ⎿  Added 1 line, removed 1 line
+      1  import { Router } from "express";
+      2  
+      3 -import type { TaskListResponse, TaskResponse } from "../../share
+        -d/types";                                                       
+      3 +import type { TaskListResponse, TaskResponse, TaskSummaryRespons
+        +e } from "../../shared/types";                                  
+      4  import { requestContext } from "../auth/authenticate";
+      5  import type { TaskService } from "../domain/taskService";
+      6  import { optionalString, optionalTaskStatus } from "./query";
+
+● Update(src\api\http\taskRoutes.ts)
+  ⎿  Added 5 lines
+      23      res.json({ tasks } satisfies TaskListResponse);
+      24    });
+      25  
+      26 +  router.get("/summary", async (_req, res) => {                
+      27 +    const summary = await taskService.summarizeTasks(requestCon
+         +text(res));                                                    
+      28 +    res.json({ summary } satisfies TaskSummaryResponse);       
+      29 +  });                                                          
+      30 +                                                               
+      31    router.post("/:taskId/complete", async (req, res) => {
+      32      const task = await taskService.completeTask(requestContext(
+          res), req.params.taskId);
+      33      res.json({ task } satisfies TaskResponse);
+
+● Now I'll run the API tests again, and find the Supertest HTTP tests from
+  commit 9e82acb so the new route can be covered there too.
+
+  Ran 1 shell command (ctrl+o to expand)
+● All 49 API tests pass, including the 7 new ones. I'll read the setup of
+  app.test.ts to add an HTTP check for the new route.
+
+  Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+● Update(src\api\app.test.ts)
+  ⎿  Added 21 lines
+      166      });
+      167    });
+      168  
+      169 +  describe("GET /api/tasks/summary", () => {                  
+      170 +    it("requires a session token", async () => {              
+      171 +      const response = await request(app).get("/api/tasks/summ
+          +ary");                                                        
+      172 +                                                              
+      173 +      expect(response).toMatchObject(apiError(401, "unauthenti
+          +cated"));                                                     
+      174 +    });                                                       
+      175 +                                                              
+      176 +    it("counts the manager's open work and reflects a task com
+          +pleted through the API", async () => {                        
+      177 +      const before = await request(app).get("/api/tasks/summar
+          +y").set(asUser("demo-dana"));                                 
+      178 +                                                              
+      179 +      expect(before.status).toBe(200);                        
+      180 +      expect(before.body.summary).toMatchObject({ open: 6, ove
+          +rdue: 3, dueSoon: 1 });                                       
+      181 +                                                              
+      182 +      await request(app).post("/api/tasks/task-1004/complete")
+          +.set(asUser("demo-dana")).expect(200);                        
+      183 +      const after = await request(app).get("/api/tasks/summary
+          +").set(asUser("demo-dana"));                                  
+      184 +                                                              
+      185 +      expect(after.body.summary).toMatchObject({ open: 5, over
+          +due: 2, dueSoon: 1 });                                        
+      186 +      expect(after.body.summary.overdueByRep.map((rep: { id: s
+          +tring }) => rep.id)).toEqual(["u-jordan", "u-marcus"]);       
+      187 +    });                                                       
+      188 +  });                                                         
+      189 +                                                              
+      190    describe("POST /api/tasks/:taskId/complete", () => {
+      191      it("completes a visible open task", async () => {
+      192        const response = await request(app).post("/api/tasks/tas
+           k-1003/complete").set(asUser("demo-marcus"));
+
+● Now the docs. I'll read domain.md in the worktree first, since editing
+  requires a read of this copy.
+
+  Read 1 file (ctrl+o to expand)
+
+● Update(docs\domain.md)
+  ⎿  Added 8 lines
+      39  task in a response carries an `isOverdue` flag. The web app dis
+          plays that flag
+      40  rather than recalculating it.
+      41  
+      42 +## Due soon                                                    
+      43 +                                                               
+      44 +A task is **due soon** when it is still open, not yet overdue, 
+         +and due within                                                 
+      45 +the next 24 hours, including a task due exactly 24 hours from n
+         +ow. A task due                                                 
+      46 +at exactly the current time is due soon, not overdue. A task is
+         + never both.                                                   
+      47 +                                                               
+      48 +Like overdue status, it is calculated by the API, for the task 
+         +summary.                                                       
+      49 +                                                               
+      50  ## Signing in
+      51  
+      52  The app does not implement real authentication. Each demo accou
+          nt has a fixed
+
+● Update(docs\domain.md)
+  ⎿  Added 4 lines
+      72  - **Tasks** lists the visible tasks, filtered by status (open b
+          y default) and,
+      73    for managers, by rep.
+      74  - **Overdue** lists visible overdue tasks, optionally filtered 
+          by rep.
+      75 +- **Team summary** (managers only) counts the team's open, over
+         +due, and due                                                   
+      76 +  soon tasks, and lists the reps who have overdue tasks, most o
+         +verdue first.                                                  
+      77 +  Each rep links to the Overdue view filtered to that rep. It l
+         +oads fresh                                                     
+      78 +  numbers each time it is opened, and it ignores the rep and st
+         +atus filters.                                                  
+      79  
+      80  Each view shows a loading message while it fetches, the tasks w
+          hen some are
+      81  returned, an empty message when the request succeeds with no ta
+          sks, and an
+
+● Update(docs\api.md)
+  ⎿  Added 24 lines
+      118  
+      119  Response: `{ "tasks": [Task, ...] }`
+      120  
+      121 +### `GET /api/tasks/summary`                                  
+      122 +                                                              
+      123 +Counts the open tasks visible to the signed-in user, using the
+          + same visibility                                              
+      124 +rules as `GET /api/tasks`. Managers get their teams' numbers; 
+          +reps get their                                                
+      125 +own. Takes no query parameters.                               
+      126 +                                                              
+      127 +```json                                                       
+      128 +{                                                             
+      129 +  "summary": {                                                
+      130 +    "open": 6,                                                
+      131 +    "overdue": 3,                                             
+      132 +    "dueSoon": 1,                                             
+      133 +    "overdueByRep": [{ "id": "u-alicia", "name": "Alicia Chen"
+          +, "overdue": 1, "open": 2 }]                                  
+      134 +  }                                                           
+      135 +}                                                             
+      136 +```                                                           
+      137 +                                                              
+      138 +| Field | Meaning |                                           
+      139 +| --- | --- |                                                 
+      140 +| `open` | Open tasks, including overdue ones |               
+      141 +| `overdue` | Open tasks that are overdue (see [domain.md](dom
+          +ain.md#overdue)) |                                            
+      142 +| `dueSoon` | Open tasks due within the next 24 hours (see [do
+          +main.md](domain.md#due-soon)) |                               
+      143 +| `overdueByRep` | Reps with at least one overdue task, with t
+          +heir overdue and open counts; most overdue first, then by name
+          + |                                                            
+      144 +                                                              
+      145  ### `POST /api/tasks/:taskId/complete`
+      146  
+      147  Marks an open task as completed. The task must be visible to t
+           he signed-in
+
+● The API part and docs are done. Now the web app. I'll read the three files
+  I'll edit in this worktree.
+
+  Read 3 files, ran 1 shell command (ctrl+o to expand)
+
+● It's 14:30, ahead of schedule. Writing the web app part now: the client
+  method, the new component, the tab wiring and the styles.
+
+● Update(src\web\api\client.ts)
+  ⎿  Added 1 line
+       5    TaskListResponse,
+       6    TaskResponse,
+       7    TaskStatus,
+       8 +  TaskSummaryResponse,                                         
+       9    TeamRepsResponse,
+      10  } from "../../shared/types";
+      11  
+
+● Update(src\web\api\client.ts)
+  ⎿  Added 1 line
+      64    listTasks: (params: TaskListParams = {}) => request<TaskListR
+          esponse>(withQuery("/api/tasks", { ...params })),
+      65    listOverdueTasks: (params: Pick<TaskListParams, "repId"> = {}
+          ) =>
+      66      request<TaskListResponse>(withQuery("/api/tasks/overdue", {
+           ...params })),
+      67 +  taskSummary: () => request<TaskSummaryResponse>("/api/tasks/s
+         +ummary"),                                                      
+      68    completeTask: (taskId: string) =>
+      69      request<TaskResponse>(`/api/tasks/${encodeURIComponent(task
+          Id)}/complete`, { method: "POST" }),
+      70  };
+
+● Write(src\web\components\TeamSummary.tsx)
+  ⎿  Wrote 89 lines to src\web\components\TeamSummary.tsx
+       1 import { api } from "../api/client";
+       2 import { useAsync } from "../hooks/useAsync";
+       3 
+       5   onSelectRep: (repId: string) => void;
+       6 }
+       7 
+       8 /** Fetches on every mount, so reopening the tab always shows nu
+       9 export function TeamSummary({ onSelectRep }: TeamSummaryProps) {
+      10   const summary = useAsync(async () => (await api.taskSummary())
+         .summary, []);
+     … +85 lines (ctrl+o to expand)
+
+● Update(src\web\styles.css)
+  ⎿  Added 28 lines
+      170  
+      171  .task-summary {
+      172    display: flex;
+      173 +  flex-wrap: wrap;                                            
+      174    gap: 1rem;
+      175    margin: 0 0 1rem;
+      176  }
+      177  
+      178 +.summary-card {                                               
+      179 +  flex: 1 1 160px;                                            
+      180 +  padding: 12px 16px;                                         
+      181 +  background: var(--surface);                                 
+      182 +  border: 1px solid var(--border);                            
+      183 +  border-radius: 8px;                                         
+      184 +}                                                             
+      185 +                                                              
+      186 +.summary-card dt {                                            
+      187 +  color: var(--muted);                                        
+      188 +  font-size: 0.85rem;                                         
+      189 +}                                                             
+      190 +                                                              
+      191 +.summary-card dd {                                            
+      192 +  margin: 4px 0 0;                                            
+      193 +  font-size: 1.75rem;                                         
+      194 +  font-weight: 600;                                           
+      195 +}                                                             
+      196 +                                                              
+      197 +.summary-card-overdue dd {                                    
+      198 +  color: var(--danger);                                       
+      199 +}                                                             
+      200 +                                                              
+      201 +.summary-card-soon dd {                                       
+      202 +  color: #8a4b00;                                             
+      203 +}                                                             
+      204 +                                                              
+      205  .visually-hidden {
+      206    position: absolute;
+      207    width: 1px;
+
+● Now App.tsx: the managers-only tab, filters hidden on it, and the jump to a
+  rep's overdue tasks.
+
+● Update(src\web\App.tsx)
+  ⎿  Added 5 lines, removed 1 line
+       5  import { AccountSwitcher } from "./components/AccountSwitcher";
+       6  import { RepFilter } from "./components/RepFilter";
+       7  import { TaskList, type TaskListView } from "./components/TaskL
+          ist";
+       8 +import { TeamSummary } from "./components/TeamSummary";        
+       9  import { useAsync } from "./hooks/useAsync";
+      10  import { loadSavedToken, saveToken } from "./session";
+      11  
+      11 -const tabs: { id: TaskListView; label: string }[] = [          
+      12 +type WorkspaceView = TaskListView | "summary";                 
+      13 +                                                               
+      14 +const tabs: { id: WorkspaceView; label: string; managersOnly?: 
+         +boolean }[] = [                                                
+      15    { id: "all", label: "Tasks" },
+      16    { id: "overdue", label: "Overdue" },
+      17 +  { id: "summary", label: "Team summary", managersOnly: true },
+      18  ];
+      19  
+      20  export function App() {
+
+● Update(src\web\App.tsx)
+  ⎿  Added 6 lines, removed 1 line
+      67    const isManager = me.status === "success" && me.data.user.rol
+          e === "manager";
+      68    const reps = useAsync(async () => (isManager ? (await api.tea
+          mReps()).reps : []), [isManager]);
+      69  
+      70 -  const [view, setView] = useState<TaskListView>("all");       
+      70 +  const [view, setView] = useState<WorkspaceView>("all");      
+      71    const [repId, setRepId] = useState("");
+      72    const [status, setStatus] = useState<TaskStatus | "">("open")
+          ;
+      73  
+      74 +  function showOverdueFor(nextRepId: string) {                 
+      75 +    setRepId(nextRepId);                                       
+      76 +    setView("overdue");                                        
+      77 +  }                                                            
+      78 +                                                               
+      79    if (me.status === "loading") {
+      80      return (
+      81        <p className="state" role="status">
+
+● Update(src\web\App.tsx)
+  ⎿  Added 1 line, removed 1 line
+      101        <div className="workspace-heading">
+      102          <h2>{isManager ? `${teamNames} follow-ups` : "My follo
+           w-ups"}</h2>
+      103          <nav className="tabs" aria-label="Task views">
+      104 -          {tabs.map((tab) => (                                
+      104 +          {tabs.filter((tab) => isManager || !tab.managersOnly
+          +).map((tab) => (                                              
+      105              <button
+      106                key={tab.id}
+      107                type="button"
+
+● Update(src\web\App.tsx)
+  ⎿  Added 22 lines, removed 14 lines
+      124          </div>
+      125        )}
+      126  
+      127 -      <div className="filters">                               
+      128 -        {isManager && reps.status === "success" && <RepFilter 
+          -reps={reps.data} value={repId} onChange={setRepId} />}        
+      129 -        {view === "all" && (                                  
+      130 -          <label className="filter">                          
+      131 -            <span>Status</span>                               
+      132 -            <select value={status} onChange={(event) => setSta
+          -tus(event.target.value as TaskStatus | "")}>                  
+      133 -              <option value="open">Open</option>              
+      134 -              <option value="completed">Completed</option>    
+      135 -              <option value="">All</option>                   
+      136 -            </select>                                         
+      137 -          </label>                                            
+      138 -        )}                                                    
+      139 -      </div>                                                  
+      127 +      {view === "summary" ? (                                 
+      128 +        <TeamSummary onSelectRep={showOverdueFor} />          
+      129 +      ) : (                                                   
+      130 +        <>                                                    
+      131 +          <div className="filters">                           
+      132 +            {isManager && reps.status === "success" && (      
+      133 +              <RepFilter reps={reps.data} value={repId} onChan
+          +ge={setRepId} />                                              
+      134 +            )}                                                
+      135 +            {view === "all" && (                              
+      136 +              <label className="filter">                      
+      137 +                <span>Status</span>                           
+      138 +                <select value={status} onChange={(event) => se
+          +tStatus(event.target.value as TaskStatus | "")}>              
+      139 +                  <option value="open">Open</option>          
+      140 +                  <option value="completed">Completed</option>
+      141 +                  <option value="">All</option>               
+      142 +                </select>                                     
+      143 +              </label>                                        
+      144 +            )}                                                
+      145 +          </div>                                              
+      146  
+      141 -      <TaskList view={view} repId={repId || undefined} status=
+          -{status || undefined} />                                      
+      147 +          <TaskList view={view} repId={repId || undefined} sta
+          +tus={status || undefined} />                                  
+      148 +        </>                                                   
+      149 +      )}                                                      
+      150      </section>
+      151    );
+      152  }
+
+● Now the web tests. First the new TeamSummary.test.tsx, then two App-level
+  tests.
+
+● Write(src\web\components\TeamSummary.test.tsx)
+  ⎿  Wrote 97 lines to src\web\components\TeamSummary.test.tsx
+       1 // @vitest-environment jsdom
+       2 import { cleanup, render, screen } from "@testing-library/react"
+         ;
+       3 import userEvent from "@testing-library/user-event";
+       4 import { afterEach, describe, expect, it, vi } from "vitest";
+       6 import type { TaskSummary } from "../../shared/types";
+       7 import { TeamSummary } from "./TeamSummary";
+       8 
+       9 const summary: TaskSummary = {
+      10   open: 6,
+     … +103 lines (ctrl+o to expand)
+
+  Read 1 file (ctrl+o to expand)
+
+● Update(src\web\App.test.tsx)
+  ⎿  Added 1 line, removed 1 line
+      1  // @vitest-environment jsdom
+      2 -import { cleanup, render, screen } from "@testing-library/react"
+        -;                                                               
+      2 +import { cleanup, render, screen, waitFor } from "@testing-libra
+        +ry/react";                                                      
+      3  import userEvent from "@testing-library/user-event";
+      4  import { afterEach, describe, expect, it, vi } from "vitest";
+      5  
+
+● Update(src\web\App.test.tsx)
+  ⎿  Added 73 lines
+       51      expect(await screen.findByRole("option", { name: "Alicia C
+           hen" })).toBeTruthy();
+       52      expect(screen.queryByRole("alert")).toBeNull();
+       53    });
+       54 +                                                              
+       55 +  it("does not offer the team summary to reps", async () => { 
+       56 +    vi.stubGlobal(                                            
+       57 +      "fetch",                                                
+       58 +      vi.fn(async (path: string) => {                         
+       59 +        switch (path) {                                       
+       60 +          case "/api/demo-accounts":                          
+       61 +            return jsonResponse({                             
+       62 +              accounts: [{ token: "demo-marcus", name: "Marcus
+          + Bell", role: "rep", teamName: "North Metro" }],              
+       63 +            });                                               
+       64 +          case "/api/me":                                     
+       65 +            return jsonResponse({                             
+       66 +              user: { id: "u-marcus", name: "Marcus Bell", rol
+          +e: "rep" },                                                   
+       67 +              teams: [{ id: "team-north", name: "North Metro" 
+          +}],                                                           
+       68 +            });                                               
+       69 +          default:                                            
+       70 +            return jsonResponse({ tasks: [] });               
+       71 +        }                                                     
+       72 +      }),                                                     
+       73 +    );                                                        
+       74 +                                                              
+       75 +    render(<App />);                                          
+       76 +                                                              
+       77 +    expect(await screen.findByRole("heading", { name: "My foll
+          +ow-ups" })).toBeTruthy();                                     
+       78 +    expect(screen.getByRole("button", { name: "Overdue" })).to
+          +BeTruthy();                                                   
+       79 +    expect(screen.queryByRole("button", { name: "Team summary"
+          + })).toBeNull();                                              
+       80 +  });                                                         
+       81 +                                                              
+       82 +  it("refetches the team summary each time it is opened and li
+          +nks a rep to their overdue tasks", async () => {              
+       83 +    const fetchMock = vi.fn(async (path: string) => {         
+       84 +      switch (path) {                                         
+       85 +        case "/api/demo-accounts":                            
+       86 +          return jsonResponse({                               
+       87 +            accounts: [{ token: "demo-dana", name: "Dana Whitf
+          +ield", role: "manager", teamName: "North Metro" }],           
+       88 +          });                                                 
+       89 +        case "/api/me":                                       
+       90 +          return jsonResponse({                               
+       91 +            user: { id: "u-dana", name: "Dana Whitfield", role
+          +: "manager" },                                                
+       92 +            teams: [{ id: "team-north", name: "North Metro" }]
+          +,                                                             
+       93 +          });                                                 
+       94 +        case "/api/team/reps":                                
+       95 +          return jsonResponse({ reps: [{ id: "u-jordan", name:
+          + "Jordan Pike", teamId: "team-north" }] });                   
+       96 +        case "/api/tasks/summary":                            
+       97 +          return jsonResponse({                               
+       98 +            summary: {                                        
+       99 +              open: 2,                                        
+      100 +              overdue: 1,                                     
+      101 +              dueSoon: 0,                                     
+      102 +              overdueByRep: [{ id: "u-jordan", name: "Jordan P
+          +ike", overdue: 1, open: 2 }],                                 
+      103 +            },                                                
+      104 +          });                                                 
+      105 +        default:                                              
+      106 +          return jsonResponse({ tasks: [] });                 
+      107 +      }                                                       
+      108 +    });                                                       
+      109 +    vi.stubGlobal("fetch", fetchMock);                        
+      110 +    const summaryRequests = () => fetchMock.mock.calls.filter(
+          +([path]) => path === "/api/tasks/summary").length;            
+      111 +                                                              
+      112 +    render(<App />);                                          
+      113 +                                                              
+      114 +    await userEvent.click(await screen.findByRole("button", { 
+          +name: "Team summary" }));                                     
+      115 +    await userEvent.click(await screen.findByRole("button", { 
+          +name: "View Jordan Pike's overdue tasks" }));                 
+      116 +                                                              
+      117 +    expect(screen.getByRole("button", { name: "Overdue" }).get
+          +Attribute("aria-pressed")).toBe("true");                      
+      118 +    expect((screen.getByRole("combobox", { name: "Rep" }) as H
+          +TMLSelectElement).value).toBe("u-jordan");                    
+      119 +    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith
+          +("/api/tasks/overdue?repId=u-jordan", expect.anything()));    
+      120 +    expect(summaryRequests()).toBe(1);                        
+      121 +                                                              
+      122 +    await userEvent.click(screen.getByRole("button", { name: "
+          +Team summary" }));                                            
+      123 +                                                              
+      124 +    expect(await screen.findByText("Jordan Pike")).toBeTruthy(
+          +);                                                            
+      125 +    expect(summaryRequests()).toBe(2);                        
+      126 +  });                                                         
+      127  });
+● Now the full suite, typecheck and build.
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● Typecheck passes, but one new test fails because "Overdue" matches both a card
+  label and a table header — a query issue, not a component bug. I'll scope the
+  lookup to the card labels (<dt>) to fix it while keeping the assertion
+  strict.
+
+● Update(src\web\components\TeamSummary.test.tsx)
+  ⎿  Added 1 line, removed 1 line
+      21  }
+      22  
+      23  function countFor(label: string) {
+      24 -  return screen.getByText(label).nextElementSibling?.textConten
+         -t;                                                             
+      24 +  return screen.getByText(label, { selector: "dt" }).nextElemen
+         +tSibling?.textContent;                                         
+      25  }
+      26  
+      27  describe("TeamSummary", () => {
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● All 62 tests pass, typecheck is clean, and the build succeeds. Since I missed
+  capturing a true baseline in the worktree, I'll pull it from the unchanged
+  main checkout, while starting the worktree's dev server on spare ports and
+  launching the review subagent in the background.
+
+  Ran 2 shell commands (ctrl+o to expand)
+
+● Agent(Review team summary diff)
+  ⎿  Backgrounded agent (↓ to manage · ctrl+o to expand)
+
+● All 47 baseline tests still pass, plus 15 new ones added, with no failures
+  either before or after. Next I'll check which ports the worktree's dev server
+  picked.
+
+  Read 1 file, ran 1 shell command (ctrl+o to expand)
+
+● All 62 tests, typecheck, and build pass, and the summary API returns expected
+  numbers on the worktree's dev server (port 5174). Next I'll check it in the
+  browser while the review subagent runs.
+
+● Skill(claude-in-chrome)
+  ⎿  Successfully loaded skill
+
+  Called claude-in-chrome 3 times (ctrl+o to expand)
+
+● Checking it in the browser now. The app on port 5174 is signed in as Dana, and
+  the Team summary tab is showing. I'll open it.
+
+  Called claude-in-chrome 2 times (ctrl+o to expand)
+
+● The screenshot timed out, probably because the tab's window isn't in front.
+  I'll check the page text instead.
+
+  Called claude-in-chrome (ctrl+o to expand)
+
+● The page still shows the Tasks view, so the click didn't take, probably for
+  the same reason as the screenshot. I'll get a fresh reference and try once
+  more.
+
+  Called claude-in-chrome 3 times (ctrl+o to expand)
+
+● The Team summary matches expectations: 6 open, 3 overdue, 1 due soon, with
+  Alicia, Jordan, and Marcus each at 1 overdue/2 open. Now I'll complete
+  Alicia's overdue task in Tasks and reopen Team summary to verify it updates
+  correctly.
+
+  Called claude-in-chrome 5 times (ctrl+o to expand)
+
+● The task is complete: the list now shows 5 open tasks. I'll reopen Team
+  summary.
+
+  Called claude-in-chrome 3 times (ctrl+o to expand)
+
+● The numbers updated: 5 open and 2 overdue, and Alicia has dropped off the
+  list. Next, "View overdue" for Jordan.
+
+  Called claude-in-chrome 4 times (ctrl+o to expand)
+
+● The drill-down works correctly, opening the Overdue view filtered to Jordan
+  Pike's 1 overdue task, and the account choice stays scoped to port 5174
+  without affecting your port 5173 app. Now I'll switch to Marcus to confirm
+  reps don't see a Team summary tab.
+
+  Called claude-in-chrome 2 times (ctrl+o to expand)
+
+● Signed in as Marcus, the page shows "My follow-ups" with only the Tasks and
+  Overdue tabs, so the rep experience is unchanged. The browser checks are done,
+  so I'll close my tab and check the time.
+
+  Called claude-in-chrome, ran 1 shell command (ctrl+o to expand)
+
+● The team summary is built and verified in the worktree on branch
+  feat/team-summary. Nothing is committed. The review subagent is still running,
+  and I'll bring its findings when it finishes.
+
+  What I built
+
+  - API: a new read-only endpoint, GET /api/tasks/summary. It returns the number
+    of open, overdue and due-soon tasks, plus a list of reps who have overdue
+    tasks, most overdue first.
+    - The counting lives in TaskService.summarizeTasks.
+    - "Due soon" is a new rule, isDueSoon in src/api/domain/tasks.ts: open and
+      due within the next 24 hours. A task can never be both overdue and due
+      soon.
+    - docs/api.md and docs/domain.md describe the endpoint and the rule.
+  - Web app: a third tab, Team summary, that only managers see.
+    - It shows three number cards and a "Reps with overdue tasks" table.
+    - Each rep has a "View overdue" button that opens the Overdue tab filtered
+      to that rep.
+    - It has its own loading, error-with-retry and empty states. The error
+      message doesn't show the server's error text.
+
+  Why this approach
+
+  - The API does the counting. The domain docs already say the API decides
+    what's overdue and the web app only displays it. "Due soon" follows the same
+    rule, and one server clock keeps the two counts consistent.
+  - It reuses the existing visibility rules. The summary is built on the same
+    scoped query as the task lists, so it adds no new copy of the visibility
+    rules. A rep calling the endpoint only gets their own counts, and your two
+    security fixes are untouched.
+  - A tab rather than a panel above the list. The Tasks and Overdue views stay
+    as they were. The tab loads fresh numbers every time it's opened, so it's
+    accurate after tasks are completed without any new refresh code.
+  - Reps see no change. Existing endpoints, response shapes and the rep screens
+    are unchanged, and there are no new dependencies.
+
+  What I tested
+
+  - Before: main passed 47 of 47 tests. I couldn't take the baseline in the
+    worktree because you stopped my first test run, so I ran it on the unchanged
+    main checkout.
+  - After: 62 of 62 pass, which is the same 47 plus 15 new tests. The typecheck
+    is clean and the build succeeds.
+  - The new API tests failed first, all 7 for the expected reason, and pass now.
+    They cover:
+    - the 24-hour limits
+    - Dana's numbers, and Marcus seeing only his own
+    - the numbers updating after a task is completed
+    - the endpoint refusing requests with no sign-in.
+  - The new web app tests cover the cards and rep table, the retry, both empty
+    messages, reps not seeing the tab, the tab fetching fresh numbers each time
+    it's opened, and the jump to a rep's overdue tasks.
+  - One of my new tests failed on its first run because "Overdue" appears both
+    as a card label and as a table heading. I narrowed that test's lookup to the
+    card labels; its checks are just as strict.
+  - In the browser, with the worktree's dev server on http://localhost:5174:
+    - Dana's summary showed 6 open, 3 overdue and 1 due soon, with Alicia,
+      Jordan and Marcus listed.
+    - After I completed Alicia's overdue task, it showed 5 and 2, and Alicia was
+      gone.
+    - "View overdue" for Jordan opened his 1 overdue task.
+    - Signed in as Marcus, there was no Team summary tab.
+
+  Left for later
+
+  - The numbers don't refresh while the tab stays open; reopening it refreshes
+    them.
+  - Ideas: make Team summary the managers' first tab, show how late each rep's
+    oldest overdue task is, and add a "Due soon" label in the task table (that
+    one changes what every task returns).
+
+  Housekeeping
+
+  - The worktree branches from your local HEAD, not from origin/main.
+    origin/main is still the initial commit, so the default would have left out
+    your 8 commits.
+  - I added one line to .git/info/exclude so the main checkout doesn't list the
+    worktree folder. It only affects your machine and isn't committed.
+  - The worktree's dev servers are still running on ports 5174 and 3002 if you
+    want to look; your own on 5173 and 3001 are untouched.
+
+  It's 14:35, so there's time before your write-up at 14:48. Shall I commit? I'd
+  suggest two commits: the API with its docs and tests, then the web app. All
+  of docs/domain.md would go in the first, since its two new sections are in one
+  file. After that I'd fast-forward main so everything sits on one branch, as
+  the brief requires. I can also draft the SUBMISSION.md entries for this.
+
+✻ Worked for 6m 37s · done 2:35 PM
+
+› Message from general-purpose
+  I found one real bug, and it is minor. Everything else matches the approved
+  plan.
+
+  **Finding: the summary's "View overdue" button can apply a rep filter the
+  manager cannot see or clear** (`src/web/App.tsx:74-77`, with `:132`)
+  - `showOverdueFor` always sets `repId`, but the Rep dropdown only appears when
+  the rep list loaded (`reps.status === "success"`).
+  - Failing scenario:
+    1. `/api/team/reps` returns 500.
+    2. The manager opens Team summary and clicks "View overdue" for Jordan Pike.
+    3. Overdue shows only Jordan's tasks, with no Rep dropdown.
+    4. The Tasks tab then requests `/api/tasks?repId=u-jordan&status=open`, so
+  it is silently filtered too.
+  - The filter only clears after a successful retry of the rep list, an account
+  switch, or a page reload. Before this change, `repId` could only be set
+  through the visible dropdown, so this state could not happen.
+  - I confirmed it with a throwaway test run in a scratch copy of the code.
+  Nothing was added to the repo, and `git status` is unchanged.
+
+  **What I checked and found correct**
+  - **Due-soon rule:** `isDueSoon` is exactly the complement of `isOverdue` in
+  time. A task due exactly now counts as due soon. A task due 24h from now
+  counts; one due 1ms later does not. Completed tasks are excluded.
+  - **Visibility:** `summarizeTasks` uses the existing scoped query, so the
+  rules in `scope.ts` apply and `canAccess` is untouched. A rep gets only their
+  own tasks; a manager gets only their teams' tasks.
+  - **Counts:** they match the fixtures, worked out by hand (Dana 6 open / 3
+  overdue / 1 due soon; Marcus 2/1/1). The per-rep list includes only reps with
+  at least one overdue task, sorted most overdue first, then by name.
+  - **Other endpoints:** existing endpoints and response shapes are unchanged.
+  The new GET `/summary` route clashes with no other route.
+  - **Web app:**
+    - The tab is shown to managers only, and filters are hidden on it.
+    - The component unmounts when you leave the tab, so it refetches each time
+  it is opened.
+    - Loading, error-with-retry (no server text shown) and empty states are all
+  there.
+    - `TaskList` and `useAsync` are unchanged.
+  - **Docs:** `docs/api.md` and `docs/domain.md` match the code.
+  - **Tests:** every test listed in the plan is present.
+
+  **Checks run**
+  - `npm run typecheck` passed.
+  - `vitest run`: 9 files and 62 tests passed.
+  - I did not run `npm run build`, because it writes to `dist/`.
+
+● The review found one real bug, and it's minor. I checked the code path in
+  src/web/App.tsx myself and it's real:
+
+  "View overdue" can apply a rep filter the manager can't see or clear. If
+  loading the rep list fails, the Rep dropdown is hidden, but the summary's
+  "View overdue" button still sets the rep filter. The Overdue tab, and the
+  Tasks tab after it, are then quietly limited to that one rep, with no visible
+  dropdown to undo it. Before this change, the rep filter could only be set from
+  the dropdown itself, so this situation couldn't happen.
+
+  Everything else matched the plan:
+  - The 24-hour limits, the visibility rules, the counts worked out by hand, and
+    the docs all agree with the code.
+  - Existing endpoints are unchanged.
+  - The reviewer's own typecheck and test run passed.
+
+  My suggested fix: only show the "View overdue" buttons when the rep list has
+  loaded, so a rep filter is only ever applied while its dropdown is on screen.
+  It's about 5 lines in App.tsx and TeamSummary.tsx. I'd first add an App test
+  that fails on the current code (rep list fails, so no "View overdue" button),
+  then make it pass. That's roughly 4 minutes, and it's 14:37.
+
+● User answered Claude's questions:
+  ⎿  · What should I do about the hidden rep filter the review found? → fix it 
+     now, but no need to write a failing test. 
+     · How should I commit once that's settled? → Two commits + fast-forward 
+     main (Recommended)
+
+● Agent "Review team summary diff" finished · 5m 14s
+
+● Fixing it now as you asked, without the failing test first. The "View overdue"
+  buttons will only appear once the rep list has loaded.
+● Update(src\web\components\TeamSummary.tsx)
+  ⎿  Added 2 lines, removed 1 line
+      2  import { useAsync } from "../hooks/useAsync";
+      3  
+      4  interface TeamSummaryProps {
+      5 -  onSelectRep: (repId: string) => void;                         
+      5 +  /** Omit to hide the "View overdue" buttons, e.g. while the re
+        +p filter they set cannot be shown. */                           
+      6 +  onSelectRep?: (repId: string) => void;                        
+      7  }
+      8  
+      9  /** Fetches on every mount, so reopening the tab always shows nu
+         mbers that include tasks completed elsewhere. */
+
+● Update(src\web\components\TeamSummary.tsx)
+  ⎿  Added 5 lines, removed 3 lines
+      62                <th scope="col">Rep</th>
+      63                <th scope="col">Overdue</th>
+      64                <th scope="col">Open</th>
+      65 -              <th scope="col">                                 
+      66 -                <span className="visually-hidden">Actions</span
+         ->                                                              
+      67 -              </th>                                            
+      65 +              {onSelectRep && (                                
+      66 +                <th scope="col">                               
+      67 +                  <span className="visually-hidden">Actions</sp
+         +an>                                                            
+      68 +                </th>                                          
+      69 +              )}                                               
+      70              </tr>
+      71            </thead>
+      72            <tbody>
+
+● Update(src\web\components\TeamSummary.tsx)
+  ⎿  Added 7 lines, removed 5 lines
+      77                    <span className="badge badge-overdue">{rep.ov
+          erdue}</span>
+      78                  </td>
+      79                  <td>{rep.open}</td>
+      80 -                <td className="actions">                       
+      81 -                  <button type="button" aria-label={`View ${rep
+         -.name}'s overdue tasks`} onClick={() => onSelectRep(rep.id)}>  
+      82 -                    View overdue                               
+      83 -                  </button>                                    
+      84 -                </td>                                          
+      80 +                {onSelectRep && (                              
+      81 +                  <td className="actions">                     
+      82 +                    <button type="button" aria-label={`View ${r
+         +ep.name}'s overdue tasks`} onClick={() => onSelectRep(rep.id)}>
+      83 +                      View overdue                             
+      84 +                    </button>                                  
+      85 +                  </td>                                        
+      86 +                )}                                             
+      87                </tr>
+      88              ))}
+      89            </tbody>
+
+● Update(src\web\App.tsx)
+  ⎿  Added 1 line, removed 1 line
+      125        )}
+      126  
+      127        {view === "summary" ? (
+      128 -        <TeamSummary onSelectRep={showOverdueFor} />          
+      128 +        <TeamSummary onSelectRep={reps.status === "success" ? 
+          +showOverdueFor : undefined} />                                
+      129        ) : (
+      130          <>
+      131            <div className="filters">
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● Tests, typecheck, and build are all clean—this fix only affects the error path
+  when the rep list fails to load, which the existing App test already covers
+  for the normal case. Now I'll create the two commits, but first I'll check
+  that main hasn't moved.
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● main is still at 081910a. Your main checkout has an uncommitted edit to
+  SUBMISSION.md, which my commits don't touch, so the fast-forward will leave it
+  alone. Commit 1, the API:
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● The commit failed because PowerShell split the quoted message, leaving nothing
+  committed but the API files still staged. I'll write the message to a file
+  and commit using git commit -F instead.
+
+  Made 2 scratchpad edits +34, committed 8651ad3 (ctrl+o to expand)
+
+● Both commits are in: 8651ad3 (API) and 21a0ab6 (web app). The worktree is
+  clean. Now the fast-forward of main, followed by a test run in the main
+  checkout to confirm it there.
+
+  Merged feat/team-summary; (ctrl+o to expand)
+
+● main is now at 21a0ab6, 62 of 62 tests pass there, and your uncommitted
+  SUBMISSION.md edit was left alone. I'll stop the worktree's extra dev server
+  so no stray processes are left running.
+
+● Stop Task
+  ⎿  $env:PORT='3002'; $env:API_URL='http://localhost:3002'; npm run dev ·
+     stopped
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● The fix is in, both commits are made, and main has been fast-forwarded to
+  them. Nothing is pushed.
+
+  Review fix: the "View overdue" buttons now only appear once the rep list has
+  loaded, so a rep filter can't be applied without its dropdown on screen. As
+  you chose, there's no failing test first, and no test checks this specific
+  case. Afterwards, all 62 tests passed and the typecheck and build were clean.
+
+  Commits on main:
+  - 8651ad3 feat(api): add GET /api/tasks/summary for team counts — the
+    endpoint, the due-soon rule, both docs files and the API tests.
+  - 21a0ab6 feat(web): add a Team summary tab for managers — the tab, the
+    component, the styles and the web tests.
+
+  After the fast-forward, 62 of 62 tests pass on the main checkout. Your
+  uncommitted SUBMISSION.md edit is untouched.
+
+  Housekeeping:
+  - I stopped the worktree's extra dev servers on ports 5174 and 3002.
+  - Your own dev servers on 5173 and 3001 now serve the new code; the API
+    restarted itself when the files changed.
+  - The worktree folder (.claude/worktrees/team-summary, branch
+    feat/team-summary) is still there and points at the same commit as main. I
+    can remove it whenever you like.
+
+  It's 14:42, so your write-up window starts at 14:48. Here is draft text for
+  SUBMISSION.md you can adapt:
+
+  - **Managers can't see team status at a glance.** The README says they open
+  the app before check-ins
+    to see who is falling behind, but had to scan lists. **Worked on:** added a
+  Team summary tab.
+
+  ## What you changed (addition)
+  - **Team summary for managers.** New `GET /api/tasks/summary` (open, overdue,
+  due in the next
+    24 hours, reps with overdue tasks) and a managers-only tab; "View overdue"
+  jumps to the Overdue
+    view filtered to that rep. Counts are computed by the API from the same
+  scoped query as the lists,
+    so visibility rules are reused, not copied; existing responses are
+  unchanged; docs updated.
+
+  ## What you decided not to do (addition)
+  - Auto-refreshing the summary while it stays open (it refreshes each time the
+  tab opens).
+  - Making it the managers' default tab; a "Due soon" badge in the task list
+  (changes the task object);
+    showing each rep's oldest overdue task.
+
+  ## Verification (addition)
+  - Baseline 47/47 → 62/62 (15 new tests); the 7 new API tests failed before the
+  code existed.
+    Typecheck and build clean.
+  - Browser: Dana's summary showed 6 open / 3 overdue / 1 due soon; after
+  completing Alicia's overdue
+    task it showed 5 / 2 / 1 and Alicia dropped off; "View overdue" opened
+  Jordan's overdue list;
+    Marcus (rep) sees no new tab.
+  - One review pass found that "View overdue" could set a hidden rep filter if
+  the rep list failed
+    to load; fixed (no dedicated test, by choice).
+
+  ## Working with AI (example)
+  - The worktree tool would have branched from `origin/main` (the initial
+  commit), dropping 8
+    unpushed commits including the security fixes; I had it branch from local
+  HEAD instead.
+
+✻ Churned for 13m 2s · done 2:42 PM
+
+❯ the main is upto date now with this feature addition                          
+
+● I'll confirm that against the repository rather than from memory.
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● Yes, confirmed. main is at 21a0ab6 and has both feature commits, and nothing
+  on feat/team-summary is missing from it.
+
+  Two things are still open before you submit:
+  - SUBMISSION.md isn't committed yet. Your edits are still uncommitted in the
+    main checkout.
+  - Nothing is pushed. main is 10 commits ahead of origin/main, and the brief
+    needs them pushed before you return the submission. I'll only push when you
+    ask.
+
+  The worktree folder (.claude/worktrees/team-summary) can now be removed, since
+  its branch is fully in main. Do you want me to remove it?
+
+✻ Crunched for 9s · done 2:43 PM
+
+❯ just cheched the UI, let's do a small improvement, move the team summary tab, 
+  at the start of the page when main loads.                                     
+
+● Before I change anything, here's how I read the request: managers land on Team
+  summary when the app loads, and it becomes the first tab. Reps don't have
+  that tab, so they still land on Tasks. I'll make the change in the worktree
+  and check the time.
+
+  Read 1 file, ran 1 shell command (ctrl+o to expand)
+
+● It's 14:47, a minute before your write-up window. This is a small change, so
+  I'll keep it tight. Making the code edit:
+
+● Update(src\web\App.tsx)
+  ⎿  Added 1 line, removed 1 line
+      12  type WorkspaceView = TaskListView | "summary";
+      13  
+      14  const tabs: { id: WorkspaceView; label: string; managersOnly?: 
+          boolean }[] = [
+      15 +  { id: "summary", label: "Team summary", managersOnly: true },
+      16    { id: "all", label: "Tasks" },
+      17    { id: "overdue", label: "Overdue" },
+      17 -  { id: "summary", label: "Team summary", managersOnly: true },
+      18  ];
+      19  
+      20  export function App() {
+
+● Update(src\web\App.tsx)
+  ⎿  Added 3 lines, removed 1 line
+      67    const isManager = me.status === "success" && me.data.user.rol
+          e === "manager";
+      68    const reps = useAsync(async () => (isManager ? (await api.tea
+          mReps()).reps : []), [isManager]);
+      69  
+      70 -  const [view, setView] = useState<WorkspaceView>("all");      
+      70 +  // Until the user picks a tab, managers land on the team summ
+         +ary and reps on their tasks.                                   
+      71 +  const [chosenView, setView] = useState<WorkspaceView | null>(
+         +null);                                                         
+      72 +  const view: WorkspaceView = chosenView ?? (isManager ? "summa
+         +ry" : "all");                                                  
+      73    const [repId, setRepId] = useState("");
+      74    const [status, setStatus] = useState<TaskStatus | "">("open")
+          ;
+      75  
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● One existing test now fails because it expects the old behavior of managers
+  landing on Tasks, but since I can't change tests without your approval, I've
+  stopped here. I suggest updating its fake server to include a summary response
+  and clicking "Tasks" before checking the Rep dropdown, plus adding a new test
+  confirming managers land on Team summary and updating docs/domain.md
+  accordingly.
+● User answered Claude's questions:
+  ⎿  · Managers now land on Team summary, which breaks one existing test written
+     for the old landing tab. How should I proceed? → Update the test 
+     (Recommended)
+
+● Updating that test as approved. I'll also add the new landing-tab checks and
+  update the docs.
+
+● Update(src\web\App.test.tsx)
+  ⎿  Added 4 lines
+      35              return repsFail
+      36                ? jsonResponse({ error: { code: "internal_error",
+           message: "Something went wrong" } }, 500)
+      37                : jsonResponse({ reps: [{ id: "u-alicia", name: "
+          Alicia Chen", teamId: "team-north" }] });
+      38 +          case "/api/tasks/summary":                           
+      39 +            return jsonResponse({ summary: { open: 0, overdue: 
+         +0, dueSoon: 0, overdueByRep: [] } });                          
+      40            default:
+      41              return jsonResponse({ tasks: [] });
+      42          }
+     ...
+      44      );
+      45  
+      46      render(<App />);
+      47 +    // Managers land on the team summary, which hides the rep f
+         +ilter; the filter lives on the Tasks tab.                      
+      48 +    await userEvent.click(await screen.findByRole("button", { n
+         +ame: "Tasks" }));                                              
+      49  
+      50      expect((await screen.findByRole("alert")).textContent).toCo
+          ntain("Could not load your reps.");
+      51  
+
+● Update(src\web\App.test.tsx)
+  ⎿  Added 2 lines, removed 1 line
+      79      render(<App />);
+      80  
+      81      expect(await screen.findByRole("heading", { name: "My follo
+          w-ups" })).toBeTruthy();
+      82 +    expect(screen.getByRole("button", { name: "Tasks" }).getAtt
+         +ribute("aria-pressed")).toBe("true");                          
+      83      expect(screen.getByRole("button", { name: "Overdue" })).toB
+          eTruthy();
+      84      expect(screen.queryByRole("button", { name: "Team summary" 
+          })).toBeNull();
+      85    });
+      86  
+      86 -  it("refetches the team summary each time it is opened and lin
+         -ks a rep to their overdue tasks", async () => {                
+      87 +  it("lands managers on the team summary, refetches it each tim
+         +e it is opened, and links a rep to their overdue tasks", async 
+         +() => {                                                        
+      88      const fetchMock = vi.fn(async (path: string) => {
+      89        switch (path) {
+      90          case "/api/demo-accounts":
+
+● Update(src\web\App.test.tsx)
+  ⎿  Added 2 lines, removed 1 line
+      116  
+      117      render(<App />);
+      118  
+      119 -    await userEvent.click(await screen.findByRole("button", { 
+          -name: "Team summary" }));                                     
+      119 +    expect(await screen.findByText("Due in the next 24 hours")
+          +).toBeTruthy();                                               
+      120 +    expect(screen.getByRole("button", { name: "Team summary" }
+          +).getAttribute("aria-pressed")).toBe("true");                 
+      121      await userEvent.click(await screen.findByRole("button", { 
+           name: "View Jordan Pike's overdue tasks" }));
+      122  
+      123      expect(screen.getByRole("button", { name: "Overdue" }).get
+           Attribute("aria-pressed")).toBe("true");
+
+  Read 1 file (ctrl+o to expand)
+
+● Update(docs\domain.md)
+  ⎿  Added 6 lines, removed 5 lines
+      69  
+      70  ## Web app views
+      71  
+      72 +- **Team summary** (managers only, and the view they land on) c
+         +ounts the                                                      
+      73 +  team's open, overdue, and due soon tasks, and lists the reps 
+         +who have overdue                                               
+      74 +  tasks, most overdue first. Each rep links to the Overdue view
+         + filtered to                                                   
+      75 +  that rep. It loads fresh numbers each time it is opened, and 
+         +it ignores the                                                 
+      76 +  rep and status filters.                                      
+      77  - **Tasks** lists the visible tasks, filtered by status (open b
+          y default) and,
+      73 -  for managers, by rep.                                        
+      78 +  for managers, by rep. Reps land on this view.                
+      79  - **Overdue** lists visible overdue tasks, optionally filtered 
+          by rep.
+      75 -- **Team summary** (managers only) counts the team's open, over
+         -due, and due                                                   
+      76 -  soon tasks, and lists the reps who have overdue tasks, most o
+         -verdue first.                                                  
+      77 -  Each rep links to the Overdue view filtered to that rep. It l
+         -oads fresh                                                     
+      78 -  numbers each time it is opened, and it ignores the rep and st
+         -atus filters.                                                  
+      80  
+      81  Each view shows a loading message while it fetches, the tasks w
+          hen some are
+      82  returned, an empty message when the request succeeds with no ta
+          sks, and an
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● All 62 tests pass, and the typecheck and build are clean. Committing as
+  approved (App.tsx, App.test.tsx, docs/domain.md), then fast-forwarding main.
+
+  Made 1 scratchpad edit +15, committed d91fb8a, merged feat/team-summary (ctrl+o to expand)
+
+● Main is now at d91fb8a with all 62 tests passing, and your SUBMISSION.md edit
+  remains untouched. I'll quickly verify on your dev server (port 5173, running
+  from main) that a manager now lands on the Team summary page.
+
+  Called claude-in-chrome 4 times (ctrl+o to expand)
+
+● Verified on your dev server (port 5173, main branch): as Dana, the page opens
+  on Team summary with tabs for Team summary, Tasks, and Overdue showing 6/3/1
+  across the three reps. I avoided switching your account to Marcus to preserve
+  your saved setting, since the app test already covers reps landing on
+  Tasks—closing my tab now.
+
+  Called claude-in-chrome (ctrl+o to expand)
+
+● Team summary is now the first tab, and managers land on it when the app loads.
+  It's on main as commit d91fb8a.
+
+  - What changed: Team summary moved to the front of the tab row in App.tsx.
+    Until someone clicks a tab, managers see Team summary and reps see Tasks.
+    Reps still have no Team summary tab, and the Tasks list isn't loaded or
+    flashed first for managers.
+  - The existing test, updated as you approved: the rep-list retry test now gets
+    a summary from its fake server and opens Tasks before looking for the Rep
+    dropdown. All its checks are unchanged.
+  - New checks:
+    - My App test now confirms managers land on Team summary without clicking.
+    - The rep test now confirms reps land on Tasks.
+  - Docs: docs/domain.md lists Team summary first and says which view each role
+    lands on.
+  - Results: 62 of 62 tests pass on main, and the typecheck and build are clean.
+    In the browser on port 5173, Dana lands on Team summary with the right
+    numbers.
+
+  It's 14:50, so you're in the write-up window, with the clock stopping at
+  14:58. Still to do:
+  - Commit SUBMISSION.md. Your edits to it are still uncommitted. Add this to
+    the earlier draft: "Managers now land on Team summary; one existing App test
+    was updated to open Tasks first (its checks are unchanged)."
+  - Push. Nothing is pushed yet: main is 11 commits ahead of origin/main.
+
+✻ Baked for 2m 41s · done 2:49 PM

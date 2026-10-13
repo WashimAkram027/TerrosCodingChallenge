@@ -118,6 +118,30 @@ Lists overdue tasks visible to the signed-in user, ordered by due time
 
 Response: `{ "tasks": [Task, ...] }`
 
+### `GET /api/tasks/summary`
+
+Counts the open tasks visible to the signed-in user, using the same visibility
+rules as `GET /api/tasks`. Managers get their teams' numbers; reps get their
+own. Takes no query parameters.
+
+```json
+{
+  "summary": {
+    "open": 6,
+    "overdue": 3,
+    "dueSoon": 1,
+    "overdueByRep": [{ "id": "u-alicia", "name": "Alicia Chen", "overdue": 1, "open": 2 }]
+  }
+}
+```
+
+| Field | Meaning |
+| --- | --- |
+| `open` | Open tasks, including overdue ones |
+| `overdue` | Open tasks that are overdue (see [domain.md](domain.md#overdue)) |
+| `dueSoon` | Open tasks due within the next 24 hours (see [domain.md](domain.md#due-soon)) |
+| `overdueByRep` | Reps with at least one overdue task, with their overdue and open counts; most overdue first, then by name |
+
 ### `POST /api/tasks/:taskId/complete`
 
 Marks an open task as completed. The task must be visible to the signed-in

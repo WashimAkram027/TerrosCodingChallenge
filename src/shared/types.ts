@@ -61,6 +61,24 @@ export interface TaskResponse {
   task: TaskView;
 }
 
+export interface RepOverdueSummary {
+  id: string;
+  name: string;
+  overdue: number;
+  open: number;
+}
+
+export interface TaskSummary {
+  open: number;
+  overdue: number;
+  dueSoon: number;
+  overdueByRep: RepOverdueSummary[];
+}
+
+export interface TaskSummaryResponse {
+  summary: TaskSummary;
+}
+
 export interface ApiErrorBody {
   error: {
     code: string;

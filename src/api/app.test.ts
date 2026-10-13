@@ -166,6 +166,27 @@ describe("HTTP API", () => {
     });
   });
 
+  describe("GET /api/tasks/summary", () => {
+    it("requires a session token", async () => {
+      const response = await request(app).get("/api/tasks/summary");
+
+      expect(response).toMatchObject(apiError(401, "unauthenticated"));
+    });
+
+    it("counts the manager's open work and reflects a task completed through the API", async () => {
+      const before = await request(app).get("/api/tasks/summary").set(asUser("demo-dana"));
+
+      expect(before.status).toBe(200);
+      expect(before.body.summary).toMatchObject({ open: 6, overdue: 3, dueSoon: 1 });
+
+      await request(app).post("/api/tasks/task-1004/complete").set(asUser("demo-dana")).expect(200);
+      const after = await request(app).get("/api/tasks/summary").set(asUser("demo-dana"));
+
+      expect(after.body.summary).toMatchObject({ open: 5, overdue: 2, dueSoon: 1 });
+      expect(after.body.summary.overdueByRep.map((rep: { id: string }) => rep.id)).toEqual(["u-jordan", "u-marcus"]);
+    });
+  });
+
   describe("POST /api/tasks/:taskId/complete", () => {
     it("completes a visible open task", async () => {
       const response = await request(app).post("/api/tasks/task-1003/complete").set(asUser("demo-marcus"));

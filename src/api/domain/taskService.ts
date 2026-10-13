@@ -1,10 +1,10 @@
-import type { TaskView } from "../../shared/types";
+import type { TaskSummary, TaskView } from "../../shared/types";
 import type { RequestContext } from "../auth/requestContext";
 import type { DirectoryRepository, Task, TaskRepository } from "../repository/types";
 import type { Clock } from "./clock";
 import { ConflictError, NotFoundError } from "./errors";
 import type { TaskQueryEngine, TaskQueryFilters } from "./taskQueries";
-import { isOverdue } from "./tasks";
+import { isDueSoon, isOverdue } from "./tasks";
 
 export type TaskFilters = TaskQueryFilters;
 
@@ -22,6 +22,29 @@ export class TaskService {
 
   async listOverdueTasks(context: RequestContext, filters: Pick<TaskFilters, "repId"> = {}): Promise<TaskView[]> {
     return this.toViews(await this.queries.run("overdue", context, filters));
+  }
+
+  /** Counts the user's open work, using the same scoped query as the task lists so the numbers always match them. */
+  async summarizeTasks(context: RequestContext): Promise<TaskSummary> {
+    const now = this.clock.now();
+    const open = await this.queries.run("all", context, { status: "open" });
+    const overdue = open.filter((task) => isOverdue(task, now));
+    const repIds = [...new Set(overdue.map((task) => task.assigneeId))];
+    const repNames = new Map((await this.directory.findUsersByIds(repIds)).map((user) => [user.id, user.name]));
+
+    return {
+      open: open.length,
+      overdue: overdue.length,
+      dueSoon: open.filter((task) => isDueSoon(task, now)).length,
+      overdueByRep: repIds
+        .map((id) => ({
+          id,
+          name: repNames.get(id) ?? "Unknown rep",
+          overdue: overdue.filter((task) => task.assigneeId === id).length,
+          open: open.filter((task) => task.assigneeId === id).length,
+        }))
+        .sort((a, b) => b.overdue - a.overdue || a.name.localeCompare(b.name)),
+    };
   }
 
   async completeTask(context: RequestContext, taskId: string): Promise<TaskView> {

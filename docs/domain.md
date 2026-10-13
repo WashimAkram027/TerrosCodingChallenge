@@ -39,6 +39,14 @@ Overdue status is calculated by the API when a response is produced, and each
 task in a response carries an `isOverdue` flag. The web app displays that flag
 rather than recalculating it.
 
+## Due soon
+
+A task is **due soon** when it is still open, not yet overdue, and due within
+the next 24 hours, including a task due exactly 24 hours from now. A task due
+at exactly the current time is due soon, not overdue. A task is never both.
+
+Like overdue status, it is calculated by the API, for the task summary.
+
 ## Signing in
 
 The app does not implement real authentication. Each demo account has a fixed
@@ -64,6 +72,10 @@ user's visibility are reported as not found when they try to act on them.
 - **Tasks** lists the visible tasks, filtered by status (open by default) and,
   for managers, by rep.
 - **Overdue** lists visible overdue tasks, optionally filtered by rep.
+- **Team summary** (managers only) counts the team's open, overdue, and due
+  soon tasks, and lists the reps who have overdue tasks, most overdue first.
+  Each rep links to the Overdue view filtered to that rep. It loads fresh
+  numbers each time it is opened, and it ignores the rep and status filters.
 
 Each view shows a loading message while it fetches, the tasks when some are
 returned, an empty message when the request succeeds with no tasks, and an

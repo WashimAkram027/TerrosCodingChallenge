@@ -94,4 +94,41 @@ describe("TaskService", () => {
     const aliciasTasks = await service.listTasks(await contextFor("u-alicia"));
     expect(aliciasTasks.find((task) => task.id === "task-1004")?.status).toBe("open");
   });
+
+  it("summarizes a manager's open, overdue and due-soon work, with reps who have overdue tasks", async () => {
+    const summary = await service.summarizeTasks(await contextFor("u-dana"));
+
+    expect(summary).toEqual({
+      open: 6,
+      overdue: 3,
+      dueSoon: 1,
+      overdueByRep: [
+        { id: "u-alicia", name: "Alicia Chen", overdue: 1, open: 2 },
+        { id: "u-jordan", name: "Jordan Pike", overdue: 1, open: 2 },
+        { id: "u-marcus", name: "Marcus Bell", overdue: 1, open: 2 },
+      ],
+    });
+  });
+
+  it("summarizes only a rep's own tasks", async () => {
+    const summary = await service.summarizeTasks(await contextFor("u-marcus"));
+
+    expect(summary).toEqual({
+      open: 2,
+      overdue: 1,
+      dueSoon: 1,
+      overdueByRep: [{ id: "u-marcus", name: "Marcus Bell", overdue: 1, open: 2 }],
+    });
+  });
+
+  it("reflects a completed task in the next summary", async () => {
+    const dana = await contextFor("u-dana");
+
+    await service.completeTask(dana, "task-1004");
+    const summary = await service.summarizeTasks(dana);
+
+    expect(summary.open).toBe(5);
+    expect(summary.overdue).toBe(2);
+    expect(summary.overdueByRep.map((rep) => rep.name)).toEqual(["Jordan Pike", "Marcus Bell"]);
+  });
 });

@@ -35,6 +35,8 @@ describe("App", () => {
             return repsFail
               ? jsonResponse({ error: { code: "internal_error", message: "Something went wrong" } }, 500)
               : jsonResponse({ reps: [{ id: "u-alicia", name: "Alicia Chen", teamId: "team-north" }] });
+          case "/api/tasks/summary":
+            return jsonResponse({ summary: { open: 0, overdue: 0, dueSoon: 0, overdueByRep: [] } });
           default:
             return jsonResponse({ tasks: [] });
         }
@@ -42,6 +44,8 @@ describe("App", () => {
     );
 
     render(<App />);
+    // Managers land on the team summary, which hides the rep filter; the filter lives on the Tasks tab.
+    await userEvent.click(await screen.findByRole("button", { name: "Tasks" }));
 
     expect((await screen.findByRole("alert")).textContent).toContain("Could not load your reps.");
 
@@ -75,11 +79,12 @@ describe("App", () => {
     render(<App />);
 
     expect(await screen.findByRole("heading", { name: "My follow-ups" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Tasks" }).getAttribute("aria-pressed")).toBe("true");
     expect(screen.getByRole("button", { name: "Overdue" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Team summary" })).toBeNull();
   });
 
-  it("refetches the team summary each time it is opened and links a rep to their overdue tasks", async () => {
+  it("lands managers on the team summary, refetches it each time it is opened, and links a rep to their overdue tasks", async () => {
     const fetchMock = vi.fn(async (path: string) => {
       switch (path) {
         case "/api/demo-accounts":
@@ -111,7 +116,8 @@ describe("App", () => {
 
     render(<App />);
 
-    await userEvent.click(await screen.findByRole("button", { name: "Team summary" }));
+    expect(await screen.findByText("Due in the next 24 hours")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Team summary" }).getAttribute("aria-pressed")).toBe("true");
     await userEvent.click(await screen.findByRole("button", { name: "View Jordan Pike's overdue tasks" }));
 
     expect(screen.getByRole("button", { name: "Overdue" }).getAttribute("aria-pressed")).toBe("true");

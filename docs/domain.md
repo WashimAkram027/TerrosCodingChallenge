@@ -69,13 +69,14 @@ user's visibility are reported as not found when they try to act on them.
 
 ## Web app views
 
+- **Team summary** (managers only, and the view they land on) counts the
+  team's open, overdue, and due soon tasks, and lists the reps who have overdue
+  tasks, most overdue first. Each rep links to the Overdue view filtered to
+  that rep. It loads fresh numbers each time it is opened, and it ignores the
+  rep and status filters.
 - **Tasks** lists the visible tasks, filtered by status (open by default) and,
-  for managers, by rep.
+  for managers, by rep. Reps land on this view.
 - **Overdue** lists visible overdue tasks, optionally filtered by rep.
-- **Team summary** (managers only) counts the team's open, overdue, and due
-  soon tasks, and lists the reps who have overdue tasks, most overdue first.
-  Each rep links to the Overdue view filtered to that rep. It loads fresh
-  numbers each time it is opened, and it ignores the rep and status filters.
 
 Each view shows a loading message while it fetches, the tasks when some are
 returned, an empty message when the request succeeds with no tasks, and an

@@ -12,9 +12,9 @@ import { loadSavedToken, saveToken } from "./session";
 type WorkspaceView = TaskListView | "summary";
 
 const tabs: { id: WorkspaceView; label: string; managersOnly?: boolean }[] = [
+  { id: "summary", label: "Team summary", managersOnly: true },
   { id: "all", label: "Tasks" },
   { id: "overdue", label: "Overdue" },
-  { id: "summary", label: "Team summary", managersOnly: true },
 ];
 
 export function App() {
@@ -67,7 +67,9 @@ function Workspace() {
   const isManager = me.status === "success" && me.data.user.role === "manager";
   const reps = useAsync(async () => (isManager ? (await api.teamReps()).reps : []), [isManager]);
 
-  const [view, setView] = useState<WorkspaceView>("all");
+  // Until the user picks a tab, managers land on the team summary and reps on their tasks.
+  const [chosenView, setView] = useState<WorkspaceView | null>(null);
+  const view: WorkspaceView = chosenView ?? (isManager ? "summary" : "all");
   const [repId, setRepId] = useState("");
   const [status, setStatus] = useState<TaskStatus | "">("open");
 

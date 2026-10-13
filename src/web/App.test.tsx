@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -50,5 +50,78 @@ describe("App", () => {
 
     expect(await screen.findByRole("option", { name: "Alicia Chen" })).toBeTruthy();
     expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("does not offer the team summary to reps", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (path: string) => {
+        switch (path) {
+          case "/api/demo-accounts":
+            return jsonResponse({
+              accounts: [{ token: "demo-marcus", name: "Marcus Bell", role: "rep", teamName: "North Metro" }],
+            });
+          case "/api/me":
+            return jsonResponse({
+              user: { id: "u-marcus", name: "Marcus Bell", role: "rep" },
+              teams: [{ id: "team-north", name: "North Metro" }],
+            });
+          default:
+            return jsonResponse({ tasks: [] });
+        }
+      }),
+    );
+
+    render(<App />);
+
+    expect(await screen.findByRole("heading", { name: "My follow-ups" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Overdue" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Team summary" })).toBeNull();
+  });
+
+  it("refetches the team summary each time it is opened and links a rep to their overdue tasks", async () => {
+    const fetchMock = vi.fn(async (path: string) => {
+      switch (path) {
+        case "/api/demo-accounts":
+          return jsonResponse({
+            accounts: [{ token: "demo-dana", name: "Dana Whitfield", role: "manager", teamName: "North Metro" }],
+          });
+        case "/api/me":
+          return jsonResponse({
+            user: { id: "u-dana", name: "Dana Whitfield", role: "manager" },
+            teams: [{ id: "team-north", name: "North Metro" }],
+          });
+        case "/api/team/reps":
+          return jsonResponse({ reps: [{ id: "u-jordan", name: "Jordan Pike", teamId: "team-north" }] });
+        case "/api/tasks/summary":
+          return jsonResponse({
+            summary: {
+              open: 2,
+              overdue: 1,
+              dueSoon: 0,
+              overdueByRep: [{ id: "u-jordan", name: "Jordan Pike", overdue: 1, open: 2 }],
+            },
+          });
+        default:
+          return jsonResponse({ tasks: [] });
+      }
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const summaryRequests = () => fetchMock.mock.calls.filter(([path]) => path === "/api/tasks/summary").length;
+
+    render(<App />);
+
+    await userEvent.click(await screen.findByRole("button", { name: "Team summary" }));
+    await userEvent.click(await screen.findByRole("button", { name: "View Jordan Pike's overdue tasks" }));
+
+    expect(screen.getByRole("button", { name: "Overdue" }).getAttribute("aria-pressed")).toBe("true");
+    expect((screen.getByRole("combobox", { name: "Rep" }) as HTMLSelectElement).value).toBe("u-jordan");
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith("/api/tasks/overdue?repId=u-jordan", expect.anything()));
+    expect(summaryRequests()).toBe(1);
+
+    await userEvent.click(screen.getByRole("button", { name: "Team summary" }));
+
+    expect(await screen.findByText("Jordan Pike")).toBeTruthy();
+    expect(summaryRequests()).toBe(2);
   });
 });

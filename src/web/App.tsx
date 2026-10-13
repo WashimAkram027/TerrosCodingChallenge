@@ -5,12 +5,16 @@ import { api, setSessionToken } from "./api/client";
 import { AccountSwitcher } from "./components/AccountSwitcher";
 import { RepFilter } from "./components/RepFilter";
 import { TaskList, type TaskListView } from "./components/TaskList";
+import { TeamSummary } from "./components/TeamSummary";
 import { useAsync } from "./hooks/useAsync";
 import { loadSavedToken, saveToken } from "./session";
 
-const tabs: { id: TaskListView; label: string }[] = [
+type WorkspaceView = TaskListView | "summary";
+
+const tabs: { id: WorkspaceView; label: string; managersOnly?: boolean }[] = [
   { id: "all", label: "Tasks" },
   { id: "overdue", label: "Overdue" },
+  { id: "summary", label: "Team summary", managersOnly: true },
 ];
 
 export function App() {
@@ -63,9 +67,14 @@ function Workspace() {
   const isManager = me.status === "success" && me.data.user.role === "manager";
   const reps = useAsync(async () => (isManager ? (await api.teamReps()).reps : []), [isManager]);
 
-  const [view, setView] = useState<TaskListView>("all");
+  const [view, setView] = useState<WorkspaceView>("all");
   const [repId, setRepId] = useState("");
   const [status, setStatus] = useState<TaskStatus | "">("open");
+
+  function showOverdueFor(nextRepId: string) {
+    setRepId(nextRepId);
+    setView("overdue");
+  }
 
   if (me.status === "loading") {
     return (
@@ -92,7 +101,7 @@ function Workspace() {
       <div className="workspace-heading">
         <h2>{isManager ? `${teamNames} follow-ups` : "My follow-ups"}</h2>
         <nav className="tabs" aria-label="Task views">
-          {tabs.map((tab) => (
+          {tabs.filter((tab) => isManager || !tab.managersOnly).map((tab) => (
             <button
               key={tab.id}
               type="button"
@@ -115,21 +124,29 @@ function Workspace() {
         </div>
       )}
 
-      <div className="filters">
-        {isManager && reps.status === "success" && <RepFilter reps={reps.data} value={repId} onChange={setRepId} />}
-        {view === "all" && (
-          <label className="filter">
-            <span>Status</span>
-            <select value={status} onChange={(event) => setStatus(event.target.value as TaskStatus | "")}>
-              <option value="open">Open</option>
-              <option value="completed">Completed</option>
-              <option value="">All</option>
-            </select>
-          </label>
-        )}
-      </div>
+      {view === "summary" ? (
+        <TeamSummary onSelectRep={reps.status === "success" ? showOverdueFor : undefined} />
+      ) : (
+        <>
+          <div className="filters">
+            {isManager && reps.status === "success" && (
+              <RepFilter reps={reps.data} value={repId} onChange={setRepId} />
+            )}
+            {view === "all" && (
+              <label className="filter">
+                <span>Status</span>
+                <select value={status} onChange={(event) => setStatus(event.target.value as TaskStatus | "")}>
+                  <option value="open">Open</option>
+                  <option value="completed">Completed</option>
+                  <option value="">All</option>
+                </select>
+              </label>
+            )}
+          </div>
 
-      <TaskList view={view} repId={repId || undefined} status={status || undefined} />
+          <TaskList view={view} repId={repId || undefined} status={status || undefined} />
+        </>
+      )}
     </section>
   );
 }

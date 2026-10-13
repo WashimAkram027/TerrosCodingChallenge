@@ -14,6 +14,11 @@ export class HttpError extends Error {
   }
 }
 
+/** `express.json()` reports a body it cannot parse as a SyntaxError tagged `entity.parse.failed`. */
+function isMalformedJsonBody(error: unknown): boolean {
+  return error instanceof SyntaxError && (error as { type?: unknown }).type === "entity.parse.failed";
+}
+
 const statusByDomainCode: Record<string, number> = {
   not_found: 404,
   forbidden: 403,
@@ -30,6 +35,9 @@ export const errorHandler: ErrorRequestHandler = (error, _req, res, _next) => {
   } else if (error instanceof DomainError) {
     status = statusByDomainCode[error.code] ?? 400;
     body = { error: { code: error.code, message: error.message } };
+  } else if (isMalformedJsonBody(error)) {
+    status = 400;
+    body = { error: { code: "invalid_request", message: "Request body must be valid JSON" } };
   } else {
     console.error(error);
   }

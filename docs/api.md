@@ -22,7 +22,8 @@ Authorization: Bearer demo-dana
 | `demo-marcus` | Marcus Bell | rep | North Metro |
 | `demo-kai` | Kai Nakamura | rep | Coastal |
 
-A missing or unknown token returns `401`.
+The `Bearer` scheme name is not case-sensitive. A missing or unknown token
+returns `401`.
 
 ## Errors
 
@@ -34,7 +35,7 @@ Errors share one shape:
 
 | Status | `code` | When |
 | --- | --- | --- |
-| 400 | `invalid_request` | A query parameter is malformed |
+| 400 | `invalid_request` | A query parameter or the JSON request body is malformed |
 | 401 | `unauthenticated` | The session token is missing or unknown |
 | 403 | `forbidden` | The request asks for data outside the user's visibility |
 | 404 | `not_found` | The route or resource does not exist or is not visible |

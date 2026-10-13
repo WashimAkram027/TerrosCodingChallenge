@@ -4,7 +4,8 @@ import type { DirectoryRepository, SessionRepository } from "../repository/types
 import { HttpError } from "../http/errors";
 import { buildRequestContext, type RequestContext } from "./requestContext";
 
-const BEARER_PREFIX = "Bearer ";
+/** The scheme name is case-insensitive, as HTTP specifies. */
+const BEARER_HEADER = /^Bearer\s+(.+)$/i;
 
 /**
  * Resolves the bearer token on the request to a signed-in user. Tokens are the
@@ -12,12 +13,12 @@ const BEARER_PREFIX = "Bearer ";
  */
 export function authenticate(sessions: SessionRepository, directory: DirectoryRepository): RequestHandler {
   return async (req: Request, res: Response, next: NextFunction) => {
-    const header = req.get("authorization");
-    if (!header?.startsWith(BEARER_PREFIX)) {
+    const match = BEARER_HEADER.exec(req.get("authorization") ?? "");
+    if (!match) {
       throw new HttpError(401, "unauthenticated", "Missing bearer token");
     }
 
-    const session = await sessions.findSessionByToken(header.slice(BEARER_PREFIX.length).trim());
+    const session = await sessions.findSessionByToken(match[1]!.trim());
     const user = session ? await directory.findUserById(session.userId) : undefined;
     if (!user) {
       throw new HttpError(401, "unauthenticated", "Session is not valid");
